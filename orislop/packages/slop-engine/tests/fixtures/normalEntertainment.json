@@ -1,0 +1,24 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/normal-entertainment",
+    "videoId": "normal-entertainment",
+    "title": "Weekend dance practice",
+    "channelName": "Weekend Lab",
+    "channelUrl": "https://www.youtube.com/@weekendlab",
+    "description": "Music and dance vlog.",
+    "hashtags": ["dance", "music"],
+    "visiblePageText": "dance practice music vlog",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "We practiced the new dance routine in the studio and tried three versions before the final take."
+  },
+  "expect": {
+    "action": "allow",
+    "skipReason": null,
+    "contentIntent": "normal_entertainment",
+    "categoriesInclude": ["normal_entertainment"],
+    "maxScores": {
+      "skipProbability": 0
+    }
+  }
+}

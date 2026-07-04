@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "build",
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "jsx": "react-jsx",
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": [
+    "apps/desktop/electron/**/*.ts",
+    "apps/desktop/src/**/*.ts",
+    "apps/desktop/src/**/*.tsx",
+    "packages/**/*.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "build",
+    "node_modules",
+    "**/tests/**"
+  ]
+}

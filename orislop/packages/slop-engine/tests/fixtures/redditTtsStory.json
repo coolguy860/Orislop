@@ -1,0 +1,25 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/reddit-tts-story",
+    "videoId": "reddit-tts-story",
+    "title": "Reddit story with subway surfers gameplay",
+    "channelName": "StoryStack",
+    "channelUrl": "https://www.youtube.com/@storystack",
+    "description": "AITA reddit story text to speech over mobile game background.",
+    "hashtags": ["redditstory", "tts"],
+    "visiblePageText": "subway surfers gameplay satisfying background",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "AITA for refusing to pay for dinner? This ask reddit story is read by an ai voice over minecraft parkour while the comments debate who is wrong."
+  },
+  "expect": {
+    "action": "skip",
+    "categoriesInclude": ["template_brainrot", "reddit_story", "tts_story"],
+    "evidenceReasonIdsInclude": ["transcript_reddit_story_pattern", "transcript_tts_story_pattern"],
+    "settingsAppliedInclude": ["skipTemplateBrainrot", "skipRedditTtsStories"],
+    "minScores": {
+      "slopScore": 0.68,
+      "skipProbability": 0.68
+    }
+  }
+}

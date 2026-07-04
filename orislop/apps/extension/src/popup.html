@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orislop</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Orislop</p>
+      <h1>Clean YouTube mode</h1>
+      <p>Orislop hides locally scored slop videos on YouTube and saves a private flagged log in this browser.</p>
+      <div class="metric-grid">
+        <div class="metric">
+          <span>Flagged locally</span>
+          <strong id="flaggedCount">0</strong>
+        </div>
+        <div class="metric">
+          <span>Skipped/hidden</span>
+          <strong id="skippedCount">0</strong>
+        </div>
+      </div>
+      <label class="toggle-row">
+        <input id="autoSkipToggle" type="checkbox" />
+        <span>Auto-skip flagged current Shorts/watch videos</span>
+      </label>
+      <label class="toggle-row">
+        <input id="hideFeedCardsToggle" type="checkbox" />
+        <span>Hide Skip-scored feed cards</span>
+      </label>
+      <section class="detector-status">
+        <strong>AI detector status</strong>
+        <span>Browser AI text rules active</span>
+        <span>Spatial: orislop-fusion (companion required)</span>
+        <span>Temporal: deepfake-temporal-moe (companion required)</span>
+      </section>
+      <section>
+        <div class="section-header">
+          <strong>Skipped cache</strong>
+          <button id="clearSkippedButton" type="button">Clear skipped</button>
+        </div>
+        <div id="skippedList" class="skipped-list"></div>
+      </section>
+      <button id="clearLogButton" type="button">Clear flagged log</button>
+      <p class="note">No API keys. No video downloads. No server.</p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

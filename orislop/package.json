@@ -1,0 +1,38 @@
+{
+  "name": "orislop-browser-mvp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "node scripts/runTsc.mjs --noEmit",
+    "check": "node scripts/runTsc.mjs --noEmit",
+    "desktop:build": "node scripts/runTsc.mjs -p tsconfig.desktop.build.json && node scripts/copyDesktopAssets.mjs",
+    "desktop:dev": "pnpm run desktop:build && electron build/apps/desktop/electron/main.js",
+    "web:dev": "node scripts/serveWebStatic.mjs --dev",
+    "web:build": "node scripts/buildWebStatic.mjs",
+    "web:preview": "node scripts/serveWebStatic.mjs",
+    "web:test": "node apps/web/tests/runWebChecks.mjs",
+    "web:deploy:zip": "pnpm run web:build && node scripts/createNamecheapZip.mjs",
+    "extension:build": "node scripts/buildBrowserExtension.mjs",
+    "extension:test": "node apps/extension/tests/runExtensionChecks.mjs",
+    "extension:zip": "pnpm run extension:build && node scripts/createExtensionZip.mjs",
+    "deep-scan:benchmark": "node scripts/benchmarkDeepScanPolicy.mjs",
+    "test:adapters": "node packages/local-inference/tests/runAdapterChecks.mjs",
+    "test:calibration": "node packages/slop-engine/tests/runCalibrationChecks.mjs",
+    "test:claim-aware": "node packages/slop-engine/tests/runClaimAwareChecks.mjs",
+    "test:desktop": "node apps/desktop/tests/runDesktopChecks.mjs",
+    "test:fixtures": "node packages/slop-engine/tests/runFixtures.mjs",
+    "test:lookahead": "node apps/desktop/tests/runLookaheadChecks.mjs",
+    "test:skip": "node apps/desktop/tests/runSkipControllerChecks.mjs",
+    "test:storage": "node packages/storage/tests/runStorageChecks.mjs",
+    "test:youtube": "node apps/desktop/tests/runYoutubeExtractorChecks.mjs"
+  },
+  "devDependencies": {
+    "electron": "^42.5.0",
+    "typescript": "^6.0.3"
+  }
+}

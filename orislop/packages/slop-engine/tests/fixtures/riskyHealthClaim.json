@@ -1,0 +1,26 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/risky-health-claim",
+    "videoId": "risky-health-claim",
+    "title": "Doctors hate this miracle cure",
+    "channelName": "Health Rush",
+    "channelUrl": "https://www.youtube.com/@healthrush",
+    "description": "Never eat this again.",
+    "hashtags": ["health", "detox"],
+    "visiblePageText": "doctors hate detox",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "Doctors say this cures diabetes overnight. Doctors hate this detox trick and say never eat this if you want fast results."
+  },
+  "expect": {
+    "action": "skip",
+    "contentIntent": "health_advice",
+    "categoriesInclude": ["unsupported_claims", "risky_educational", "serious_claim"],
+    "evidenceReasonIdsInclude": ["metadata_doctors_hate", "transcript_miracle_health_claim"],
+    "settingsAppliedInclude": ["skipHighRiskUnsupportedClaims"],
+    "minScores": {
+      "claimRiskScore": 0.82,
+      "skipProbability": 0.82
+    }
+  }
+}

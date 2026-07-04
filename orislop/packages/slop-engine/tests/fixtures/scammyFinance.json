@@ -1,0 +1,27 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/scammy-finance",
+    "videoId": "scammy-finance",
+    "title": "Guaranteed returns with my crypto signals",
+    "channelName": "Signal Vault",
+    "channelUrl": "https://www.youtube.com/@signalvault",
+    "description": "Limited spots in my telegram group. DM me for guaranteed profit.",
+    "hashtags": ["crypto", "money"],
+    "visiblePageText": "copy my trades risk free",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "Copy my trades in my telegram group. Guaranteed returns are waiting if you join before the limited spots close."
+  },
+  "expect": {
+    "action": "skip",
+    "skipReason": "scammy",
+    "contentIntent": "scam_promo",
+    "categoriesInclude": ["scammy", "unsupported_claims", "serious_claim"],
+    "evidenceReasonIdsInclude": ["metadata_guaranteed_returns", "transcript_guaranteed_returns"],
+    "settingsAppliedInclude": ["skipScamFinance"],
+    "minScores": {
+      "claimRiskScore": 0.82,
+      "skipProbability": 0.82
+    }
+  }
+}

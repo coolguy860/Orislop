@@ -1,0 +1,24 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/educational-useful",
+    "videoId": "educational-useful",
+    "title": "Introduction to SQL joins explained",
+    "channelName": "Useful Lessons",
+    "channelUrl": "https://www.youtube.com/@usefullessons",
+    "description": "A compact lesson with examples.",
+    "hashtags": ["education", "sql"],
+    "visiblePageText": "tutorial guide",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "This tutorial explains how inner joins and left joins work using a small table example you can follow."
+  },
+  "expect": {
+    "action": "allow",
+    "skipReason": null,
+    "contentIntent": "serious_education",
+    "categoriesInclude": ["high_value_content"],
+    "maxScores": {
+      "skipProbability": 0
+    }
+  }
+}

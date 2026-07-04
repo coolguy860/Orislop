@@ -1,0 +1,14 @@
+{
+  "name": "@orislop/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/serveWebStatic.mjs --dev",
+    "build": "node ../../scripts/buildWebStatic.mjs",
+    "preview": "node ../../scripts/serveWebStatic.mjs",
+    "check": "node tests/runWebChecks.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

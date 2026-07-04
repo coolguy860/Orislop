@@ -1,0 +1,28 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/fake-text-story",
+    "videoId": "fake-text-story",
+    "title": "Fake text conversation with my boss",
+    "channelName": "TextDramaDaily",
+    "channelUrl": "https://www.youtube.com/@textdramadaily",
+    "description": "Text conversation storytime.",
+    "hashtags": ["faketext", "storytime"],
+    "visiblePageText": "fake text message story",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "Mom: where are you?\nMe: at work.\nBoss: you're fired.\nMe: this is fake text drama for storytime."
+  },
+  "settings": {
+    "autoSkip": false
+  },
+  "expect": {
+    "action": "warn",
+    "categoriesInclude": ["template_brainrot", "fake_text_story"],
+    "evidenceReasonIdsInclude": ["transcript_fake_text_story_pattern"],
+    "settingsAppliedInclude": ["skipTemplateBrainrot", "skipFakeTextStories"],
+    "minScores": {
+      "slopScore": 0.66,
+      "skipProbability": 0.66
+    }
+  }
+}

@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+build/
+.env
+.env.local
+.vercel/
+*.zip
+*.mp4
+*.mov
+*.pt
+*.pth
+*.onnx
+__pycache__/
+.cache/

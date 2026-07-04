@@ -1,0 +1,26 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/obvious-brainrot",
+    "videoId": "obvious-brainrot",
+    "title": "You won't believe this minecraft parkour secret trick!!!",
+    "channelName": "ClipsMax",
+    "channelUrl": "https://www.youtube.com/@clipsmax",
+    "description": "Watch till the end before they take this down. Like and follow for part 2.",
+    "hashtags": ["brainrot", "minecraftparkour"],
+    "visiblePageText": "satisfying background mobile game background",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "Watch till the end wait for it wait for it. This changes everything. Like and follow, subscribe for more, wait for it."
+  },
+  "expect": {
+    "action": "skip",
+    "skipReason": "engagement_bait",
+    "categoriesInclude": ["engagement_bait", "template_brainrot", "low_information"],
+    "evidenceReasonIdsInclude": ["metadata_watch_till_the_end", "metadata_minecraft_parkour", "metadata_like_and_follow"],
+    "settingsAppliedInclude": ["skipEngagementBait", "skipTemplateBrainrot", "skipLowInformation"],
+    "minScores": {
+      "slopScore": 0.6,
+      "skipProbability": 0.6
+    }
+  }
+}

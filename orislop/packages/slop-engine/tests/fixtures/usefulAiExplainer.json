@@ -1,0 +1,28 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/useful-ai-explainer",
+    "videoId": "useful-ai-explainer",
+    "title": "AI-generated explainer: how transformers work",
+    "channelName": "Model Notes",
+    "channelUrl": "https://www.youtube.com/@modelnotes",
+    "description": "Educational guide to attention layers.",
+    "hashtags": ["ai", "education"],
+    "visiblePageText": "Altered or synthetic content",
+    "hasPlatformAiLabel": true,
+    "platformAiLabelText": "Altered or synthetic content",
+    "transcript": "This lesson explains how attention layers compare tokens and combine context in a transformer model."
+  },
+  "expect": {
+    "action": "skip",
+    "skipReason": "ai_labeled",
+    "userFacingReasonIncludes": "AI content blocked",
+    "categoriesInclude": ["ai_labeled", "high_value_content"],
+    "categoriesExclude": ["possible_unlabeled_ai"],
+    "evidenceReasonIdsInclude": ["platform_ai_label"],
+    "settingsAppliedInclude": ["skipAllAiLabeled"],
+    "minScores": {
+      "aiGeneratedScore": 1,
+      "skipProbability": 1
+    }
+  }
+}

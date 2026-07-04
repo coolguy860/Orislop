@@ -1,0 +1,27 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/minecraft-parkour-facts",
+    "videoId": "minecraft-parkour-facts",
+    "title": "Did you know this stock will explode? Minecraft parkour facts",
+    "channelName": "FactRush",
+    "channelUrl": "https://www.youtube.com/@factrush",
+    "description": "They don't want you to know this hidden secret.",
+    "hashtags": ["facts", "minecraftparkour"],
+    "visiblePageText": "minecraft parkour satisfying background",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "Did you know this stock will double? Studies show the government doesn't want you to know what they are hiding."
+  },
+  "expect": {
+    "action": "skip",
+    "contentIntent": "finance_advice",
+    "categoriesInclude": ["template_brainrot", "unsupported_claims", "serious_claim"],
+    "evidenceReasonIdsInclude": ["metadata_this_stock_will", "transcript_this_stock_will"],
+    "settingsAppliedInclude": ["skipTemplateBrainrot"],
+    "minScores": {
+      "slopScore": 0.64,
+      "claimRiskScore": 0.75,
+      "skipProbability": 0.64
+    }
+  }
+}

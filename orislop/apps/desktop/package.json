@@ -1,0 +1,14 @@
+{
+  "name": "@orislop/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "../../build/apps/desktop/electron/main.js",
+  "scripts": {
+    "dev": "pnpm --dir ../.. run desktop:dev",
+    "check": "node tests/runDesktopChecks.mjs",
+    "check:lookahead": "node tests/runLookaheadChecks.mjs",
+    "check:skip": "node tests/runSkipControllerChecks.mjs",
+    "check:youtube": "node tests/runYoutubeExtractorChecks.mjs"
+  }
+}

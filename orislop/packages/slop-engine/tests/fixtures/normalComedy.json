@@ -1,0 +1,24 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/normal-comedy",
+    "videoId": "normal-comedy",
+    "title": "POV scientists found pizza makes Mondays illegal",
+    "channelName": "StudioBits",
+    "channelUrl": "https://www.youtube.com/@studiobits",
+    "description": "A short comedy skit with an absurd punchline.",
+    "hashtags": ["comedy", "skit"],
+    "visiblePageText": "comedy skit",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": "POV scientists found pizza makes Mondays illegal, and everyone laughs. This is a comedy skit, not advice."
+  },
+  "expect": {
+    "action": "allow",
+    "skipReason": null,
+    "contentIntent": "comedy_satire",
+    "categoriesInclude": ["comedy_satire", "serious_claim"],
+    "maxScores": {
+      "skipProbability": 0
+    }
+  }
+}

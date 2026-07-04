@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "adapters": {
+    "minilm": {
+      "id": "minilm",
+      "kind": "embedding",
+      "enabled": false,
+      "mode": "disabled",
+      "modelPath": null,
+      "notes": "Optional future local embedding adapter. No automatic downloads."
+    },
+    "openclip": {
+      "id": "openclip",
+      "kind": "openclip",
+      "enabled": false,
+      "mode": "disabled",
+      "modelPath": null,
+      "notes": "Optional future visual-template adapter. No automatic downloads."
+    },
+    "ocr": {
+      "id": "ocr",
+      "kind": "ocr",
+      "enabled": false,
+      "mode": "disabled",
+      "notes": "Optional future OCR adapter."
+    },
+    "local_llm": {
+      "id": "local_llm",
+      "kind": "local_llm",
+      "enabled": false,
+      "mode": "disabled",
+      "modelPath": null,
+      "notes": "Optional future local claim-risk adapter. No remote calls."
+    },
+    "whisper": {
+      "id": "whisper",
+      "kind": "whisper",
+      "enabled": false,
+      "mode": "disabled",
+      "modelPath": null,
+      "notes": "Optional future local transcript adapter."
+    },
+    "existing_ai_detector": {
+      "id": "existing_ai_detector",
+      "kind": "existing_ai_detector",
+      "enabled": false,
+      "mode": "subprocess",
+      "hfRepoId": null,
+      "localModelDirectory": null,
+      "scriptPath": null,
+      "modelPath": null,
+      "checkpointPath": null,
+      "notes": "Optional wrapper for an existing Orislop AI detector. Disabled unless paths are configured."
+    },
+    "spatial_detector": {
+      "id": "spatial_detector",
+      "kind": "spatial_detector",
+      "enabled": false,
+      "mode": "subprocess",
+      "hfRepoId": "orislop-fusion",
+      "localModelDirectory": null,
+      "scriptPath": "core/spatial.py",
+      "modelPath": null,
+      "checkpointPath": null,
+      "notes": "Optional wrapper for core/spatial.py / orislop-fusion. Disabled by default; no automatic downloads or startup imports."
+    },
+    "temporal_detector": {
+      "id": "temporal_detector",
+      "kind": "temporal_detector",
+      "enabled": false,
+      "mode": "subprocess",
+      "hfRepoId": "deepfake-temporal-moe",
+      "localModelDirectory": null,
+      "detectorRoot": null,
+      "scriptPath": null,
+      "checkpointPath": null,
+      "checkpointPaths": [],
+      "thresholdPath": null,
+      "requiredFiles": [
+        "temporal_deepfake_moe_hf_colab.py",
+        "final_pipeline_core.py",
+        "full_pipeline_utils.py"
+      ],
+      "notes": "Optional wrapper for the Phase 1 temporal detector / deepfake-temporal-moe. Configure paths locally; missing checkpoints must return unavailable."
+    },
+    "fusion_detector": {
+      "id": "fusion_detector",
+      "kind": "fusion_detector",
+      "enabled": false,
+      "mode": "disabled",
+      "hfRepoId": "orislop-fusion",
+      "localModelDirectory": null,
+      "modelPath": null,
+      "checkpointPath": null,
+      "notes": "Optional future fusion model wrapper. Configure full Hugging Face repo ID locally; no automatic downloads."
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "lenient": {
+    "allowBelow": 0.45,
+    "warnAt": 0.45,
+    "skipAt": 0.7
+  },
+  "medium": {
+    "allowBelow": 0.35,
+    "warnAt": 0.35,
+    "skipAt": 0.6
+  },
+  "strict": {
+    "allowBelow": 0.25,
+    "warnAt": 0.25,
+    "skipAt": 0.5
+  }
+}

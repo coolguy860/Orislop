@@ -1,0 +1,31 @@
+{
+  "short": {
+    "url": "https://www.youtube.com/shorts/missing-transcript",
+    "videoId": "missing-transcript",
+    "title": "Calm woodworking vlog",
+    "channelName": "Bench Notes",
+    "channelUrl": "https://www.youtube.com/@benchnotes",
+    "description": "A normal entertainment clip from the shop.",
+    "hashtags": ["woodworking", "vlog"],
+    "visiblePageText": "normal entertainment vlog",
+    "hasPlatformAiLabel": false,
+    "platformAiLabelText": null,
+    "transcript": null
+  },
+  "expect": {
+    "action": "allow",
+    "skipReason": null,
+    "contentIntent": "normal_entertainment",
+    "categoriesInclude": ["normal_entertainment"],
+    "signals": [
+      {
+        "name": "transcript_rules",
+        "applicable": false,
+        "scoreIsNull": true
+      }
+    ],
+    "maxScores": {
+      "skipProbability": 0
+    }
+  }
+}
