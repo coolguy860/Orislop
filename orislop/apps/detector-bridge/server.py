@@ -95,6 +95,11 @@ ALLOWED_EXTENSION_ORIGINS = {
     for origin in os.environ.get("ORISLOP_ALLOWED_EXTENSION_ORIGINS", "").split(",")
     if origin.strip()
 }
+ALLOWED_WEB_ORIGINS = {
+    origin.strip().rstrip("/")
+    for origin in os.environ.get("ORISLOP_ALLOWED_WEB_ORIGINS", "").split(",")
+    if origin.strip()
+}
 ALLOW_ORIGINLESS_POSTS = os.environ.get("ORISLOP_ALLOW_ORIGINLESS_POSTS", "0") == "1"
 ROOT = Path(__file__).resolve().parents[2]
 CACHE_ROOT = Path(os.environ.get("ORISLOP_DETECTOR_CACHE", ROOT / ".cache" / "detector-bridge")).resolve()
@@ -3073,8 +3078,9 @@ class Handler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin", "").rstrip("/")
         if not origin:
             return allow_missing
-        if ALLOWED_EXTENSION_ORIGINS:
-            return origin in ALLOWED_EXTENSION_ORIGINS
+        configured_origins = ALLOWED_EXTENSION_ORIGINS | ALLOWED_WEB_ORIGINS
+        if configured_origins:
+            return origin in configured_origins
         return origin.startswith("chrome-extension://")
 
     def _bearer_token(self) -> str:

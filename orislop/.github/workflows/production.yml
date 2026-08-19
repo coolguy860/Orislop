@@ -57,5 +57,8 @@ jobs:
           retention-days: 14
           path: |
             dist/orislop-browser-extension.zip
+            dist/orislop-browser-extension-webstore.zip
             dist/orislop-namecheap-static.zip
             dist/release-manifest.json
+            assets/chrome-web-store/*.png
+            assets/chrome-web-store/ASSET_MANIFEST.json

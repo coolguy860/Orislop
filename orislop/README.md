@@ -138,7 +138,7 @@ Build the load-unpacked directory:
 pnpm extension:build
 ```
 
-Load `apps/extension/dist` from `chrome://extensions`, `brave://extensions`, or `edge://extensions`. The Chrome Web Store upload artifact is produced at `dist/orislop-browser-extension.zip`.
+Load `apps/extension/dist` from `chrome://extensions`, `brave://extensions`, or `edge://extensions`. The dedicated Chrome Web Store upload artifact is `dist/orislop-browser-extension-webstore.zip`; its build fails if the forbidden manifest `key` field or any required release file is missing. See [the store release guide](docs/CHROME_WEB_STORE.md).
 
 ## Cloud inference
 
@@ -176,7 +176,7 @@ pnpm web:build
 pnpm web:preview
 ```
 
-Vercel uses `vercel.json`, builds with `pnpm run web:build`, and publishes `apps/web/dist`. The same build embeds the exact verified extension ZIP offered by the product site.
+Vercel uses `vercel.json`, builds with `pnpm run web:build`, and publishes `apps/web/dist`. Same-origin serverless routes securely proxy the optional live context check, so `ORISLOP_WEB_API_TOKEN` never reaches the browser. Without those variables, the site remains useful through its instant on-device checker and labels live AI as unavailable. Follow [the web production guide](docs/WEB_PRODUCTION.md).
 
 ## Production gate
 
@@ -193,8 +193,8 @@ GitHub Actions runs the same gate for pull requests and `main` pushes.
 ## Security and privacy
 
 - Local mode binds only to `127.0.0.1`; Cloud Heavy requires TLS, Google account sessions, quotas, and an exact extension-origin allowlist.
-- Inference POST requests require an approved Chrome-extension origin.
-- Production can restrict requests to exact extension origins.
+- Inference POST requests require an approved Chrome-extension or website server-proxy origin.
+- Production restricts requests to exact extension and website origins; wildcards are not supported.
 - Media acquisition uses exact page-host and media-CDN allowlists, safe redirect validation, response type checks, and a 120 MB limit.
 - Cloud ordinary media stays in tmpfs for no more than 60 seconds. Only an explicit report may retain an encrypted eight-second 360p clip for seven days.
 - The extension requests storage, Chrome Identity, supported-feed, `api.orislop.com`, Ollama loopback, and detector loopback access.

@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distRoot = path.join(repoRoot, "dist");
-const artifactNames = ["orislop-browser-extension.zip", "orislop-namecheap-static.zip"];
+const artifactNames = [
+  "orislop-browser-extension.zip",
+  "orislop-browser-extension-webstore.zip",
+  "orislop-namecheap-static.zip"
+];
 
 const artifacts = artifactNames.map((name) => {
   const filePath = path.join(distRoot, name);

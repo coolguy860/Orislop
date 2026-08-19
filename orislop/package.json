@@ -50,6 +50,7 @@
     "audit:cross-platform-128": "node scripts/auditCrossPlatformLaunchCorpus.mjs",
     "audit:youtube-1000": "node scripts/collectYoutubeScaleAudit.mjs",
     "extension:zip": "pnpm run extension:build && node scripts/createExtensionZip.mjs",
+    "extension:store:verify": "node scripts/verifyWebStoreAssets.mjs",
     "extension:test:package": "node scripts/verify-test-package.mjs",
     "extension:zip:cloud": "node scripts/buildBrowserExtension.mjs --cloud-beta && node scripts/createExtensionZip.mjs",
     "detector:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setupDetectorBridge.ps1",

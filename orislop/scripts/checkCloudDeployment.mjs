@@ -31,6 +31,8 @@ assert.ok(entrypoint.includes("ORISLOP_GOOGLE_OAUTH_CLIENT_ID"));
 assert.ok(entrypoint.includes("DATABASE_URL"));
 assert.ok(compose.includes("ORISLOP_API_TOKENS: ${ORISLOP_API_TOKENS:?"));
 assert.ok(compose.includes("ORISLOP_ALLOWED_EXTENSION_ORIGINS: ${ORISLOP_ALLOWED_EXTENSION_ORIGINS:?"));
+assert.ok(compose.includes("ORISLOP_ALLOWED_WEB_ORIGINS:"), "cloud deployment must allow the exact website server-proxy origin");
+assert.ok(server.includes("ALLOWED_WEB_ORIGINS"), "bridge must support a separate exact website-origin allowlist");
 assert.ok(compose.includes("ORISLOP_CLOUD_BETA_AUTOMATIC_HIDES"));
 assert.ok(compose.includes("CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?"));
 assert.ok(compose.includes('"127.0.0.1:4317:4317"'), "Compose must expect TLS termination in front of the API");

@@ -61,6 +61,7 @@ Run `pnpm cloud:check` first. Configure the Runpod Pod with that exact SHA tag, 
 ```text
 ORISLOP_API_TOKENS
 ORISLOP_ALLOWED_EXTENSION_ORIGINS=chrome-extension://<stable-id>
+ORISLOP_ALLOWED_WEB_ORIGINS=https://orislop.com
 ORISLOP_GOOGLE_OAUTH_CLIENT_ID
 ORISLOP_TOKEN_SECRET
 ORISLOP_CONTENT_HMAC_SECRET

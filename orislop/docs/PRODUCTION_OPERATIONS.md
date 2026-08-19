@@ -57,6 +57,7 @@ Normal request logging is disabled. Set `ORISLOP_DETECTOR_VERBOSE=1` only during
 | `ORISLOP_DETECTOR_PORT` | `4317` | Loopback port |
 | `ORISLOP_DETECTOR_HOST` | `127.0.0.1` | Bind address; the cloud container uses `0.0.0.0` |
 | `ORISLOP_ALLOWED_EXTENSION_ORIGINS` | empty | Comma-separated exact production extension origins |
+| `ORISLOP_ALLOWED_WEB_ORIGINS` | empty | Comma-separated exact website server-proxy origins; never use a wildcard |
 | `ORISLOP_ALLOW_ORIGINLESS_POSTS` | `0` | Local API development override; never enable in production |
 | `ORISLOP_REQUIRE_API_AUTH` | local: `0`, public: `1` | Require bearer authorization |
 | `ORISLOP_API_TOKENS` | empty | Comma-separated closed-beta tokens; store only in a secret manager |

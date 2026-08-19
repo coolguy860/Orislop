@@ -47,11 +47,17 @@ writeFileSync(path.join(distRoot, "index.html"), `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Orislop Shield is privacy-conscious feed intelligence for YouTube, Instagram Reels, TikTok, and LinkedIn." />
     <meta name="theme-color" content="#080c12" />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Orislop Shield · Your attention deserves a firewall" />
+    <meta property="og:description" content="Clean up repetitive, synthetic, and low-value feed content while useful and uncertain posts stay visible." />
+    <meta property="og:url" content="https://orislop.com" />
     <meta name="orislop-release" content="${releaseId}" />
+    <link rel="canonical" href="https://orislop.com" />
     <link rel="icon" href="./assets/brand/orislop_feedcut_icon.svg" type="image/svg+xml" />
     <link rel="icon" href="./assets/brand/icon_32.png" sizes="32x32" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/brand/icon_256.png" />
-    <title>Orislop Shield · Your attention deserves a firewall</title>
+    <title>Orislop Shield · A calmer feed without the guesswork</title>
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
@@ -93,15 +99,16 @@ writeFileSync(path.join(distRoot, "privacy.html"), `<!doctype html>
         <h1>Privacy Policy</h1>
         <p>
           Orislop Shield's website remains local-first. The extension supports a local companion and an optional
-          authenticated cloud inference mode.
-          The hosted static site does not require an account, does not include a secret YouTube API key,
-          does not scrape comments, and does not upload local video files.
+          authenticated cloud inference mode. The website does not require an account, does not include a secret
+          YouTube API key, does not scrape comments, and does not upload local video files.
         </p>
         <h2>Static Website</h2>
         <p>
           The analyzer scores YouTube URLs, optional titles, optional descriptions, and decision-lab rows in
-          your browser. Feedback such as Accurate or Wrong is stored in your browser's local storage on
-          your device. The static site does not send those feedback records to an Orislop server.
+          your browser. When the live context checker is connected, the YouTube URL and text you entered are sent
+          through an Orislop server-side proxy for a Qwen second opinion. The API credential never reaches your
+          browser. Local file selections, feedback, settings, and decision-lab logs are not sent by that request.
+          Feedback such as Accurate or Wrong is stored in your browser's local storage on your device.
         </p>
         <h2>Browser Extension</h2>
         <p>
@@ -152,9 +159,10 @@ writeFileSync(path.join(distRoot, "privacy.html"), `<!doctype html>
         </p>
         <h2>Detection Limits</h2>
         <p>
-          This public static build uses transparent heuristics. It can be wrong. It does not run the full
-          spatial or temporal PyTorch model. Source-assisted fact checking can also be incomplete or wrong and
-          should not be treated as a guarantee of truth or as a factual deepfake verdict.
+          The web demo combines transparent local scoring with an optional live text-context second opinion. It can
+          be wrong and does not run the full spatial or temporal PyTorch model on a pasted YouTube URL. Full media
+          analysis requires the extension to access supported media. Source-assisted fact checking can also be
+          incomplete or wrong and should not be treated as a guarantee of truth or a factual deepfake verdict.
         </p>
         <p><a class="primary-link" href="./index.html">Back to Orislop</a></p>
       </section>
@@ -195,6 +203,11 @@ function buildExtensionDownload() {
     cwd: repoRoot,
     stdio: "inherit"
   });
+
+  const extensionManifest = JSON.parse(readFileSync(path.join(extensionDist, "manifest.json"), "utf8"));
+  if (Object.hasOwn(extensionManifest, "key")) {
+    throw new Error('The downloadable extension cannot include the forbidden manifest "key" field.');
+  }
 
   createZipFromDirectoryContents(extensionDist, zipPath);
   mkdirSync(path.dirname(standaloneZipPath), { recursive: true });
@@ -248,7 +261,9 @@ function writeReleaseInfo() {
       "primary result stays compact while technical evidence remains available on demand",
       "feedback shows a persistent local selected state",
       "placeholder sample IDs do not issue thumbnail or embed requests",
-      "production metadata and Vercel security headers are configured"
+      "production metadata and Vercel security headers are configured",
+      "same-origin live context AI uses a server-side token and friendly local fallback",
+      "Chrome Web Store package rejects the forbidden manifest key field"
     ]
   }, null, 2)}\n`);
 }

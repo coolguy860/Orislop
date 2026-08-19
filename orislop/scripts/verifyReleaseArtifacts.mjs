@@ -8,6 +8,7 @@ import { readZipEntries, readZipEntry } from "./lib/zip.mjs";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const siteZip = path.join(repoRoot, "dist", "orislop-namecheap-static.zip");
 const extensionZip = path.join(repoRoot, "dist", "orislop-browser-extension.zip");
+const webStoreExtensionZip = path.join(repoRoot, "dist", "orislop-browser-extension-webstore.zip");
 const embeddedExtensionZip = path.join(repoRoot, "apps", "web", "dist", "downloads", "orislop-browser-extension.zip");
 const webDist = path.join(repoRoot, "apps", "web", "dist");
 const extensionDist = path.join(repoRoot, "apps", "extension", "dist");
@@ -15,12 +16,14 @@ const integrityManifestPath = path.join(repoRoot, "dist", "release-manifest.json
 
 assertFile(siteZip, "static website deploy ZIP");
 assertFile(extensionZip, "browser extension ZIP");
+assertFile(webStoreExtensionZip, "Chrome Web Store extension ZIP");
 assertFile(embeddedExtensionZip, "embedded extension ZIP in web build");
 assertFile(integrityManifestPath, "release integrity manifest");
 
 const siteEntries = readZipEntries(siteZip);
 const extensionEntries = readZipEntries(extensionZip);
 const embeddedExtensionEntries = readZipEntries(embeddedExtensionZip);
+assertBuffersEqual(readFileSync(webStoreExtensionZip), readFileSync(extensionZip), "Web Store and verified extension ZIPs must contain the same release bytes");
 
 assertRequiredEntries("static website ZIP", siteEntries, [
   "index.html",
@@ -100,6 +103,7 @@ assert.ok(Array.isArray(extensionRelease.requiredQaFixes) && extensionRelease.re
 
 const manifest = readZipJson(extensionZip, "manifest.json");
 assert.equal(manifest.version, "1.3.0");
+assert.equal(Object.hasOwn(manifest, "key"), false, 'Extension manifest must not contain forbidden "key"');
 assert.equal(manifest.icons["128"], "icons/icon128.png");
 assert.equal(manifest.icons["256"], "icons/icon256.png");
 
@@ -110,10 +114,11 @@ const webJavaScript = siteEntries
   .join("\n");
 assert.ok(appBundle.includes("url: \"\""), "Analyzer must start with empty URL");
 assert.ok(appBundle.includes("Enter a YouTube URL before analyzing."), "Analyzer must show invalid URL guidance");
-assert.ok(appBundle.includes("Fails closed"), "Analyzer must state invalid URLs never score");
+assert.ok(appBundle.includes("Clear reasons"), "Analyzer must promise understandable result reasons");
 assert.ok(appBundle.includes("Base points"), "Score breakdown must be visible");
-assert.ok(appBundle.includes("Orislop Shield 1.1"), "Release marker must be visible in the app bundle");
+assert.ok(appBundle.includes("Orislop Shield 1.3"), "Release marker must be visible in the app bundle");
 assert.ok(appBundle.includes("AI classifier predicted"), "AI classifier explanation must be visible in the app bundle");
+assert.ok(appBundle.includes("Live context AI is taking a second look"), "Live AI second-opinion state must be visible in the app bundle");
 assert.ok(webJavaScript.includes("Spatiotemporal detector was not run"), "Unavailable spatiotemporal status must be present in a shipped web module");
 
 const indexHtml = readZipEntry(siteZip, "index.html").toString("utf8");

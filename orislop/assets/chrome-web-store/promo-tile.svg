@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280" role="img" aria-labelledby="title desc">
+  <title id="title">Orislop Shield</title>
+  <desc id="desc">Filter the slop and reclaim your feed.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07090c"/>
+      <stop offset="0.55" stop-color="#0d1218"/>
+      <stop offset="1" stop-color="#071328"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.76" cy="0.28" r="0.68">
+      <stop offset="0" stop-color="#176bff" stop-opacity=".32"/>
+      <stop offset="1" stop-color="#176bff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".45"/>
+    </filter>
+  </defs>
+  <rect width="440" height="280" rx="18" fill="url(#bg)"/>
+  <rect width="440" height="280" rx="18" fill="url(#glow)"/>
+  <g opacity=".15" stroke="#fff">
+    <path d="M0 56H440M0 112H440M0 168H440M0 224H440"/>
+    <path d="M55 0V280M110 0V280M165 0V280M220 0V280M275 0V280M330 0V280M385 0V280"/>
+  </g>
+  <g transform="translate(34 35) scale(.21)" filter="url(#shadow)">
+    <path fill="#ff6a00" d="M90 82h241l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z"/>
+    <path fill="#176bff" d="M361 82h45a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24h-81l36-70Z"/>
+    <path fill="#ff6a00" d="M90 202h185l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z"/>
+    <path fill="#176bff" d="M305 202h65a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24H269l36-70Z"/>
+    <path fill="#ff6a00" d="M90 322h129l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z"/>
+    <path fill="#176bff" d="M249 322h85a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24H213l36-70Z"/>
+  </g>
+  <text x="132" y="76" fill="#f6f8fb" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="900" letter-spacing="2.2">ORISLOP</text>
+  <text x="34" y="135" fill="#f6f8fb" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="800">Your attention deserves</text>
+  <text x="34" y="171" fill="#f6f8fb" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="800">a firewall.</text>
+  <rect x="34" y="205" width="197" height="42" rx="8" fill="#ff6a00"/>
+  <text x="132.5" y="231" text-anchor="middle" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="800">FILTER THE SLOP</text>
+  <g transform="translate(274 198)">
+    <rect width="132" height="56" rx="10" fill="#121922" stroke="#324355"/>
+    <circle cx="20" cy="19" r="5" fill="#57d98b"/>
+    <text x="34" y="23" fill="#f4f7fa" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700">Protection active</text>
+    <text x="14" y="43" fill="#9eabb9" font-family="Arial, Helvetica, sans-serif" font-size="9">Useful content stays visible</text>
+  </g>
+</svg>

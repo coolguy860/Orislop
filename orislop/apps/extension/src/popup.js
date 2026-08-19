@@ -360,7 +360,7 @@ function renderScanStatus(status, settings) {
       : platform === "linkedin" ? "Watching for the next LinkedIn item." : "Watching for the next video.";
   } else if (state === "error") {
     title.textContent = "Scanner needs attention";
-    detail.textContent = status?.error || "The last scan did not finish. Try Scan now.";
+    detail.textContent = friendlyProblem(status?.error, "scan");
   } else {
     title.textContent = "Ready when you open a feed";
     detail.textContent = "YouTube, Instagram, TikTok, or LinkedIn starts the scanner automatically.";
@@ -423,21 +423,21 @@ function renderHealth(settings, storedOllama, storedDetector, storedFactChecker)
   renderEngineCard("language", ollamaAvailable ? "available" : ollama.state === "checking" ? "checking" : "unavailable", {
     state: ollamaAvailable ? "Ready" : ollama.state === "model_missing" ? "Model needed" : ollama.state === "checking" ? "Checking" : "Offline",
     detail: ollamaAvailable
-      ? `${ollama.model || settings.ollamaModel}${settings.inferenceMode === "cloud" ? " · cloud" : ""}`
-      : settings.inferenceMode === "cloud" ? "Cloud context service is unavailable" : "Start Ollama to restore context scoring"
+      ? `Understands titles and captions${settings.inferenceMode === "cloud" ? " · cloud" : ""}`
+      : settings.inferenceMode === "cloud" ? "The cloud context check is waking up" : "Open Orislop Companion to turn this on"
   });
   const visualWarming = detectorAvailable && detector.state !== "available" && detector.state !== "idle";
   renderEngineCard("visual", detectorAvailable ? "available" : detector.state === "checking" ? "checking" : "unavailable", {
     state: detectorAvailable ? visualWarming ? "Verifying" : "Ready" : detector.state === "checking" ? "Checking" : "Offline",
     detail: detectorAvailable
       ? `${detector.accelerator || (settings.inferenceMode === "cloud" ? "cloud" : "local")}${Number(detector.queueDepth || detector.queue_depth) ? ` · ${Number(detector.queueDepth || detector.queue_depth)} queued` : ""}`
-      : settings.inferenceMode === "cloud" ? "Cloud visual service is unavailable" : "Start the detector bridge"
+      : settings.inferenceMode === "cloud" ? "The cloud media check is waking up" : "Open Orislop Companion to turn this on"
   });
   renderEngineCard("evidence", factCheckerAvailable ? "available" : factChecker.state === "checking" ? "checking" : "limited", {
     state: factCheckerAvailable ? factChecker.state === "checking" ? "Verifying" : "Ready" : factChecker.state === "checking" ? "Checking" : "Optional setup",
     detail: factCheckerAvailable
       ? `${readyProviderNames(factChecker).join(" + ") || "Trusted sources"}${Number(factChecker.queue_depth || factChecker.queueDepth) ? ` · ${Number(factChecker.queue_depth || factChecker.queueDepth)} queued` : ""}`
-      : settings.inferenceMode === "cloud" ? "Cloud evidence service is unavailable" : "Add a key to check factual claims"
+      : settings.inferenceMode === "cloud" ? "The cloud evidence check is waking up" : "Optional: connect a source provider"
   });
 
   const overall = document.getElementById("overallStatus");
@@ -467,12 +467,12 @@ function renderHealth(settings, storedOllama, storedDetector, storedFactChecker)
     overall.innerHTML = '<i aria-hidden="true"></i>Attention';
     title.textContent = ollamaAvailable || detectorAvailable ? "Almost ready" : "Finish setup";
     detail.textContent = settings.inferenceMode === "cloud"
-      ? "Check the cloud endpoint and access in diagnostics. Fast local rules remain active."
+      ? "The deeper cloud check needs attention. Fast protection is still active."
       : !ollamaAvailable && !detectorAvailable
-        ? "Start both companion services to get full coverage."
-        : !ollamaAvailable ? "Clip checks are ready; start Ollama for caption context."
-          : !detectorAvailable ? "Caption context is ready; start the visual detector."
-            : "Add a source provider key to verify informational claims.";
+        ? "Open Orislop Companion for full coverage. Fast protection is still active."
+        : !ollamaAvailable ? "Media checks are ready; open Orislop Companion for caption context."
+          : !detectorAvailable ? "Caption context is ready; open Orislop Companion for media checks."
+            : "Optional source verification is not connected yet.";
   }
 
   renderOllamaStatus(settings, ollama);
@@ -569,21 +569,21 @@ function renderOllamaStatus(settings, status) {
   const host = document.getElementById("ollamaStatus");
   const state = status?.state || "checking";
   host.dataset.state = state;
-  if (state === "available" || status?.installed === true) host.textContent = `${status.model || settings.ollamaModel} is ready.`;
-  else if (state === "degraded") host.textContent = status?.error || "Some items exceeded the inference time budget.";
-  else if (state === "model_missing") host.textContent = `${settings.ollamaModel} is not installed.`;
+  if (state === "available" || status?.installed === true) host.textContent = "Ready to understand titles and captions.";
+  else if (state === "degraded") host.textContent = friendlyProblem(status?.error, "context");
+  else if (state === "model_missing") host.textContent = "The local context helper still needs to finish setup.";
   else if (state === "bypassed_hard_ai") host.textContent = "A synthetic-media rule handled the latest item.";
-  else host.textContent = status?.error || "Ollama is not reachable on 127.0.0.1:11434.";
+  else host.textContent = friendlyProblem(status?.error, "context");
 }
 
 function renderDetectorStatus(status) {
   const host = document.getElementById("detectorStatus");
   const state = status?.state || "checking";
   host.dataset.state = state;
-  if (status?.available === true || state === "available" || state === "idle") host.textContent = `Bridge ${status?.version || ""} is ready${status?.accelerator ? ` on ${status.accelerator}` : ""}.`;
+  if (status?.available === true || state === "available" || state === "idle") host.textContent = `Ready to inspect media${status?.accelerator ? ` on ${status.accelerator}` : ""}.`;
   else if (state === "provisional" || String(state).includes("loading")) host.textContent = "Fast checks are on; second look is loading.";
   else if (state === "pending" || String(state).includes("analyzing")) host.textContent = "Visual check is working through the queue.";
-  else host.textContent = status?.error || "Detector bridge is not reachable on 127.0.0.1:4317.";
+  else host.textContent = friendlyProblem(status?.error, "visual");
 }
 
 function renderFactCheckStatus(status) {
@@ -594,7 +594,7 @@ function renderFactCheckStatus(status) {
     const providers = readyProviderNames(status);
     host.textContent = `${providers.join(" and ") || "Source check"} is ready.`;
   } else if (state === "checking") host.textContent = "Checking source provider configuration.";
-  else host.textContent = status?.error || "Add a Brave Search or Google Fact Check API key.";
+  else host.textContent = friendlyProblem(status?.error, "evidence");
 }
 
 function readyProviderNames(status) {
@@ -753,7 +753,7 @@ document.getElementById("cloudSignInButton").addEventListener("click", async () 
     runtimeHealth = null;
     await refreshRuntimeHealth(true);
   } else {
-    setStatus(response?.error || "Google sign-in could not be completed.");
+    setStatus(friendlyProblem(response?.error, "signin"));
     await render();
   }
 });
@@ -761,7 +761,7 @@ document.getElementById("cloudSignInButton").addEventListener("click", async () 
 document.getElementById("cloudSignOutButton").addEventListener("click", async () => {
   const response = await sendMessage({ type: "orislop.cloudSignOut" });
   if (response?.ok) cloudAccount = { signedIn: false };
-  setStatus(response?.ok ? "Signed out. Local Fast is still active." : response?.error || "Sign-out failed.");
+  setStatus(response?.ok ? "Signed out. Local Fast is still active." : friendlyProblem(response?.error, "signout"));
   await render();
 });
 
@@ -769,14 +769,14 @@ document.getElementById("cloudDeleteAccountButton").addEventListener("click", as
   if (!window.confirm("Delete your Orislop beta account and revoke every session?")) return;
   const response = await sendMessage({ type: "orislop.cloudDeleteAccount" });
   if (response?.ok && response?.deleted === true) cloudAccount = { signedIn: false };
-  setStatus(response?.ok ? "Orislop beta account deleted." : response?.error || "Account deletion failed.");
+  setStatus(response?.ok ? "Orislop beta account deleted." : friendlyProblem(response?.error, "account"));
   await render();
 });
 
 async function refreshCloudAccount(quiet = false) {
   const response = await sendMessage({ type: "orislop.cloudAccount" });
   cloudAccount = response?.signedIn ? response : { signedIn: false, error: response?.error || "" };
-  if (!quiet && !response?.signedIn) setStatus(response?.error || "Sign in to enable Cloud Heavy.");
+  if (!quiet && !response?.signedIn) setStatus(response?.error ? friendlyProblem(response.error, "signin") : "Sign in to enable Cloud Heavy.");
   return cloudAccount;
 }
 
@@ -791,10 +791,10 @@ async function testOllama() {
   await storage.set({
     [OLLAMA_STATUS_KEY]: response?.ok
       ? { state: "available", model: response.model || readModelInput(), installed: true, error: "", checkedAt: Date.now() }
-      : { state: "unavailable", model: readModelInput(), installed: false, error: response?.error || response?.message || "Context test failed.", checkedAt: Date.now() }
+      : { state: "unavailable", model: readModelInput(), installed: false, error: friendlyProblem(response?.error || response?.message, "context"), checkedAt: Date.now() }
   });
   runtimeHealth = null;
-  setStatus(response?.message || response?.error || "Context test failed.");
+  setStatus(response?.ok ? (response?.message || "Context check passed.") : friendlyProblem(response?.error || response?.message, "context"));
   await render();
 }
 
@@ -804,10 +804,10 @@ async function testDetector() {
   await storage.set({
     [DETECTOR_STATUS_KEY]: response?.ok
       ? { state: response.state || "available", available: true, version: response.version, modelStates: response.modelStates, queueDepth: response.queueDepth, error: "", checkedAt: Date.now() }
-      : { state: "unavailable", available: false, error: response?.error || response?.message || "Visual test failed.", checkedAt: Date.now() }
+      : { state: "unavailable", available: false, error: friendlyProblem(response?.error || response?.message, "visual"), checkedAt: Date.now() }
   });
   runtimeHealth = null;
-  setStatus(response?.message || response?.error || "Visual test failed.");
+  setStatus(response?.ok ? (response?.message || "Media check passed.") : friendlyProblem(response?.error || response?.message, "visual"));
   await render();
 }
 
@@ -817,10 +817,10 @@ async function testFactChecker() {
   await storage.set({
     [FACT_CHECK_STATUS_KEY]: response?.ok
       ? { state: response.state || "idle", configured: true, providers: response.providers || {}, queueDepth: response.queueDepth, error: "", checkedAt: Date.now() }
-      : { state: response?.state || "unconfigured", configured: false, providers: response?.providers || {}, error: response?.error || response?.message || "Evidence setup is incomplete.", checkedAt: Date.now() }
+      : { state: response?.state || "unconfigured", configured: false, providers: response?.providers || {}, error: friendlyProblem(response?.error || response?.message, "evidence"), checkedAt: Date.now() }
   });
   runtimeHealth = null;
-  setStatus(response?.message || response?.error || "Evidence test failed.");
+  setStatus(response?.ok ? (response?.message || "Evidence check passed.") : friendlyProblem(response?.error || response?.message, "evidence"));
   await render();
 }
 
@@ -919,6 +919,49 @@ function sendMessage(message) {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(message, (response) => resolve(chrome.runtime.lastError ? { ok: false, error: chrome.runtime.lastError.message } : response));
   });
+}
+
+function friendlyProblem(value, area = "general") {
+  const text = String(value || "").toLowerCase();
+  if (/429|rate limit|too many|quota/.test(text)) {
+    return "That service is busy right now. Fast protection is still working, so try again shortly.";
+  }
+  if (/401|403|unauthor|forbidden|token|session|expired/.test(text)) {
+    return area === "signin"
+      ? "Sign-in did not finish. Close the Google window, then try once more."
+      : "Your secure connection expired. Sign in again to restore deeper checks.";
+  }
+  if (/timeout|timed out|abort/.test(text)) {
+    return "That check took too long, so Orislop left the item visible. Try again in a moment.";
+  }
+  if (/model_missing|not installed|pull model|no model/.test(text)) {
+    return "The local AI is still being installed. Fast protection is already working.";
+  }
+  if (/loading|warming|starting|503|service unavailable/.test(text)) {
+    return "The deeper checker is warming up. Fast protection is already working.";
+  }
+  if (/fetch|network|econn|refused|reachable|offline|failed to connect|receiving end does not exist/.test(text)) {
+    return area === "scan"
+      ? "Open a supported feed and refresh the page, then choose Scan now."
+      : area === "context" || area === "visual"
+        ? "Orislop Companion is not running yet. Open it on this computer, then try again."
+        : "Orislop cannot reach that service right now. Your feed stays visible and Fast protection stays on.";
+  }
+  if (/not configured|missing|api key|provider/.test(text)) {
+    return area === "evidence"
+      ? "Source checking is optional and has not been connected yet."
+      : "Finish the short setup to turn on this deeper check.";
+  }
+  const fallback = {
+    scan: "The last scan did not finish. Refresh the feed, then choose Scan now.",
+    context: "The context checker needs attention. Fast protection is still working.",
+    visual: "The media checker needs attention. Fast protection is still working.",
+    evidence: "Source checking is optional and is not available right now.",
+    signin: "Sign-in did not finish. Try again, or keep using private local protection.",
+    signout: "Sign-out did not finish. Check your connection and try again.",
+    account: "Your account could not be removed right now. Try again in a moment."
+  };
+  return fallback[area] || "Something interrupted that check. Your feed was left unchanged; try again in a moment.";
 }
 
 function readModelInput() {
