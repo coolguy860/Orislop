@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "modelBundleVersion": "cloud-heavy-v1.2.0-full-stack",
+  "calibrated": false,
+  "betaGatePassed": false,
+  "releaseGatePassed": false,
+  "models": {
+    "customSpatial": {
+      "repoId": "gonnerthetooner/orislop-fusion",
+      "checkpointFile": "fusion_model_cls_v2.pt",
+      "checkpointSha256": "10a8d878f8cbd767c73014666bf19bf51f30fac485e2e33358da23b563f149df",
+      "license": "Orislop proprietary beta artifact; dataset provenance unresolved",
+      "frames": 5
+    },
+    "publicFrame": {
+      "repoId": "prithivMLmods/Deepfake-Detection-Exp-02-21",
+      "revision": "adf169cf452ea42f80d8cdca1302c8c9d09d1725",
+      "frames": 5,
+      "files": {
+        "model.safetensors": "48fb731fa9ec61fd37bd99cbdaf35dbca6b8102534d2ca3f3d98afab1aa6f353",
+        "config.json": "d5fdd81d33ee18adf20dc5ba04557ca8af71b3efa3e6169cf69bac39a0bd3116",
+        "preprocessor_config.json": "937a9376b0fbe362278da22f3b6e5008697fa7c00740c8c0377ca3ae8b4307ef"
+      },
+      "license": "Apache-2.0"
+    },
+    "motion": {
+      "repoId": "MusapYildiz/aegis-video-detector",
+      "revision": "95b71346cec650165e6ad3fb20ed9e80f4b6702a",
+      "sourceRevision": "d86a774a6a06abe8c0356d0f821e8d85c69f3397",
+      "checkpointFile": "checkpoint_best.pt",
+      "checkpointSha256": "7df233979f9d3ef340e101d0d635a4d074577d43e6d1591d677cde31f80e44ba",
+      "frames": 16,
+      "windowSeconds": 4.0,
+      "license": "MIT"
+    },
+    "promotedTemporal": {
+      "repoId": null,
+      "revision": null,
+      "subdirectory": "final_model_package",
+      "weightsSha256": null,
+      "rollout": "corroborated",
+      "selectionMetric": "validation_auc",
+      "baselineValidationAuc": 0.9769989814107461,
+      "candidateValidationAuc": 0.9771801727684081,
+      "testAuc": 0.9757298422242957,
+      "testAccuracy": 0.923209961950882,
+      "testF1": 0.9264900662251656,
+      "notes": "Populate repoId, revision, and weightsSha256 after publishing the promoted package. The Vast full-stack launcher requires this package and uses temporal as strict corroboration; automatic action still requires the independent release gates."
+    }
+  },
+  "calibration": {
+    "spatialLogistic": {
+      "intercept": 0.0,
+      "customCoefficient": 1.0,
+      "publicCoefficient": 1.0
+    },
+    "motionTemperature": 1.0
+  },
+  "thresholds": {
+    "aggressiveSpatial": 0.8,
+    "aggressiveMotion": 0.8,
+    "minimumValidationSyntheticRecall": 0.9,
+    "publicGenuineHideCeiling": 0.001,
+    "minimumValidationVideos": 1000,
+    "minimumValidationGenuineVideos": 500,
+    "minimumValidationSyntheticVideos": 500,
+    "requireHumanReviewedVideoLabels": true
+  },
+  "rollout": {
+    "defaultMode": "shadow",
+    "automaticHidesRequireExplicitEnable": true,
+    "nonEnglishMode": "shadow"
+  },
+  "latencyTargets": {
+    "initialFastSweepMs": 2000,
+    "warmHeavyP95Ms": 2000,
+    "automaticShadowFallbackP95Ms": 5000
+  }
+}

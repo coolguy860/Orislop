@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "audited_at": "2026-07-15",
+  "policy": {
+    "default_status": "rejected_until_reviewed",
+    "required_evidence": [
+      "code_and_dependency_license",
+      "model_weight_license",
+      "input_rights",
+      "output_commercial_training_rights",
+      "provider_terms_snapshot",
+      "human_approval"
+    ]
+  },
+  "generators": [
+    {
+      "id": "wav2lip-open",
+      "family_id": "wav2lip-open",
+      "status": "prohibited_noncommercial",
+      "source": "https://github.com/Rudrabha/Wav2Lip",
+      "notes": "Treat the official open repository and released models as personal/research/non-commercial only. Do not use them in a commercial Orislop dataset."
+    },
+    {
+      "id": "sync-labs",
+      "family_id": "sync-labs-lipsync",
+      "status": "contract_required",
+      "source": "https://sync.so/",
+      "notes": "Sync Labs is not D-ID. Require written terms that explicitly permit commercial detector-dataset creation, retained outputs, and trained-model distribution."
+    },
+    {
+      "id": "deepfacelab",
+      "family_id": "deepfacelab",
+      "status": "conditional_component_review",
+      "source": "https://github.com/iperov/DeepFaceLab",
+      "code_license": "GPL-3.0",
+      "notes": "The code license does not clear pretrained checkpoints, bundled dependencies, input faces, voices, performer likenesses, or outputs. Every component and performer consent must pass review."
+    },
+    {
+      "id": "runway",
+      "family_id": "runway-video",
+      "status": "conditional_terms_snapshot",
+      "source": "https://runwayml.com/terms-of-use",
+      "notes": "Runway currently says it does not claim ownership of inputs/outputs and does not restrict compliant commercial output use. Do not describe this as assignment of ownership. Archive the exact terms, service model version, request ID, input rights, and enterprise data-use terms for each generation batch."
+    },
+    {
+      "id": "stable-video-diffusion",
+      "family_id": "stability-video",
+      "status": "conditional_checkpoint_license",
+      "source": "https://huggingface.co/stabilityai/stable-video-diffusion-img2vid/blob/main/LICENSE.md",
+      "notes": "Official SVD is not generically CC BY. Review the exact checkpoint license, revenue conditions, acceptable-use restrictions, input rights, and whether the planned discriminative-detector training is permitted."
+    },
+    {
+      "id": "unknown-or-community-checkpoint",
+      "family_id": "unknown",
+      "status": "rejected_until_reviewed",
+      "notes": "A permissive code repository does not establish rights to a checkpoint or its outputs."
+    }
+  ]
+}

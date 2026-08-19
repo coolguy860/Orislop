@@ -1,7 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createZipFromDirectoryContents, readZipEntries } from "./lib/zip.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const extensionDist = path.join(repoRoot, "apps", "extension", "dist");
@@ -14,23 +14,34 @@ if (!existsSync(manifestPath)) {
 }
 
 mkdirSync(rootDist, { recursive: true });
-if (existsSync(zipPath)) {
-  rmSync(zipPath, { force: true });
+rmSync(zipPath, { force: true });
+createZipFromDirectoryContents(extensionDist, zipPath);
+
+const entries = readZipEntries(zipPath);
+const requiredEntries = [
+  "manifest.json",
+  "slopPreferences.js",
+  "aiClassifierModel.generated.js",
+  "background.js",
+  "platformAdapters.js",
+  "contentScript.js",
+  "contentStyles.css",
+  "popup.html",
+  "popup.css",
+  "popup.js",
+  "release-info.json",
+  "test-release.json",
+  "icons/icon16.png",
+  "icons/icon32.png",
+  "icons/icon48.png",
+  "icons/icon128.png",
+  "icons/icon256.png"
+];
+
+for (const requiredEntry of requiredEntries) {
+  if (!entries.includes(requiredEntry)) {
+    throw new Error(`Extension ZIP must contain ${requiredEntry}.`);
+  }
 }
-
-const escapedSource = extensionDist.replaceAll("'", "''");
-const escapedZip = zipPath.replaceAll("'", "''");
-const compressScript = [
-  "Add-Type -AssemblyName System.IO.Compression.FileSystem",
-  `$source = '${escapedSource}'`,
-  `$zip = '${escapedZip}'`,
-  "$items = Get-ChildItem -LiteralPath $source",
-  "Compress-Archive -LiteralPath $items.FullName -DestinationPath $zip -Force"
-].join("; ");
-
-execFileSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", compressScript], {
-  cwd: repoRoot,
-  stdio: "inherit"
-});
 
 console.log(`Browser extension ZIP ready: ${zipPath}`);

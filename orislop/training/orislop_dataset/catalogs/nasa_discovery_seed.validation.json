@@ -1,0 +1,27 @@
+{
+  "catalog": "C:\\Users\\aarush\\Documents\\Codex\\2026-07-11\\ok\\work\\orislop-vercel-linux-check\\training\\orislop_dataset\\catalogs\\nasa_discovery_seed.jsonl",
+  "counts": {
+    "label": {
+      "0": 10
+    },
+    "label_status": {
+      "provisional": 10
+    },
+    "platform": {
+      "open_dataset": 10
+    },
+    "rights_status": {
+      "review_required": 10
+    },
+    "usage": {
+      "reference_only": 10
+    }
+  },
+  "errors": [],
+  "records": 10,
+  "reference_or_quarantined": 10,
+  "schema_version": 1,
+  "training_eligible": 0,
+  "valid": true,
+  "warnings": []
+}

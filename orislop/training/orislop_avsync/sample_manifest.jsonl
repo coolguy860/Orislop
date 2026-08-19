@@ -1,0 +1,3 @@
+{"id":"real-speaker-001","video_path":"aligned/real-speaker-001.mp4","label":"aligned","split":"train"}
+{"id":"lip-edit-001","video_path":"mismatched/lip-edit-001.mp4","label":"mismatched","split":"train"}
+{"id":"voiceover-001","video_path":"not_applicable/voiceover-001.mp4","label":"not_applicable","split":"val"}

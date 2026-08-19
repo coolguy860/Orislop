@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Orislop explanation fixture</title>
+    <link rel="stylesheet" href="../../src/contentStyles.css">
+    <style>
+      article { height: 360px; margin: 12px; width: 240px; }
+      .media { height: 320px; position: relative; width: 220px; }
+      video { height: 100%; width: 100%; }
+    </style>
+  </head>
+  <body>
+    <article id="normal"><div class="media"><video muted></video></div></article>
+    <article id="wrong"><div class="media"><video muted></video></div></article>
+    <script>
+      globalThis.__ORISLOP_TEST__ = true;
+      globalThis.chrome = {
+        runtime: {
+          lastError: null,
+          sendMessage(message, callback) {
+            if (message.type === "orislop.chatVideo") {
+              callback({
+                ok: true,
+                mode: "chat",
+                answer: "The checked CDC evidence does not support the video's absolute claim [1].",
+                uncertainty: "The cited excerpt does not answer unrelated medical questions.",
+                sources: [{
+                  title: "Primary evidence",
+                  url: "https://www.cdc.gov/example",
+                  domain: "cdc.gov",
+                  publisher: "CDC",
+                  trusted: true
+                }]
+              });
+              return;
+            }
+            callback({
+              ok: true,
+              mode: message.mode,
+              heading: "How rainbows form",
+              explanation: "The teacher says that water droplets bend and separate sunlight into visible colors.",
+              decisionExplanation: "Orislop kept this educational explanation visible.",
+              uncertainty: "Only the displayed transcript was available.",
+              sources: [{
+                title: "Primary evidence",
+                url: "https://www.cdc.gov/example",
+                domain: "cdc.gov",
+                publisher: "CDC",
+                trusted: true
+              }]
+            });
+          }
+        }
+      };
+    </script>
+    <script src="../../src/aiClassifierModel.generated.js"></script>
+    <script src="../../src/classifier.js"></script>
+    <script src="../../src/platformAdapters.js"></script>
+    <script src="../../src/controlCore.js"></script>
+    <script src="../../src/contentScript.js"></script>
+    <script>
+      const api = globalThis.__ORISLOP_EXTENSION_TEST_API__;
+      const normal = document.getElementById("normal");
+      const normalCandidate = {
+        itemKey: "instagram:normal",
+        itemId: "normal",
+        platform: "instagram",
+        title: "Why rainbows form",
+        visibleText: "A teacher explains how light separates into colors.",
+        transcriptText: "Light bends by different amounts inside water droplets."
+      };
+      api.showExplainControl(normal, normalCandidate, {
+        recommendation: "watch",
+        reasons: ["Educational explanation"]
+      });
+      normal.querySelector(".orislop-explain-button").click();
+
+      const wrong = document.getElementById("wrong");
+      api.showDecisionCover(wrong, {
+        ...normalCandidate,
+        itemKey: "instagram:wrong",
+        itemId: "wrong",
+        title: "Incorrect medical claim"
+      }, {
+        recommendation: "skip",
+        score: 91,
+        detectorStatus: "ready",
+        reasons: ["Trusted evidence contradicts the claim"],
+        hardFactContradiction: true,
+        factCheckDecision: {
+          verdict: "contradicted",
+          claim: "The treatment prevents every infection.",
+          summary: "Trusted evidence does not support that absolute claim.",
+          sources: [{
+            title: "Primary evidence",
+            url: "https://www.cdc.gov/example",
+            domain: "cdc.gov",
+            publisher: "CDC",
+            trusted: true
+          }]
+        }
+      });
+      wrong.querySelector(".orislop-cover-explain-button").click();
+      api.renderPageScanIndicator({ state: "scanning", visibleCount: 3, checkedCount: 3 });
+
+      queueMicrotask(() => {
+        const panel = normal.querySelector(".orislop-explanation-panel");
+        const source = panel?.querySelector(".orislop-explanation-sources a");
+        const wrongPanel = wrong.querySelector(".orislop-explanation-panel");
+        const chatForm = wrongPanel?.querySelector(".orislop-fact-chat-form");
+        const chatInput = chatForm?.querySelector("input");
+        if (chatInput && chatForm) {
+          chatInput.value = "What does the trusted source actually say?";
+          chatForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }
+        queueMicrotask(() => queueMicrotask(() => {
+          document.body.dataset.result = encodeURIComponent(JSON.stringify({
+            explainButton: normal.querySelector(".orislop-explain-button")?.textContent || "",
+            panelText: panel?.textContent || "",
+            panelInsideMedia: panel?.parentElement?.classList.contains("media") === true,
+            sourceHref: source?.href || "",
+            sourceRel: source?.rel || "",
+            contradictedAction: wrong.querySelector(".orislop-cover-explain-button")?.textContent || "",
+            coverInsideMedia: wrong.querySelector(".orislop-decision-cover")?.parentElement?.classList.contains("media") === true,
+            chatEnabled: wrongPanel?.dataset.chatEnabled === "true",
+            chatInsideMedia: wrongPanel?.parentElement?.classList.contains("media") === true,
+            chatPlaceholder: chatInput?.placeholder || "",
+            chatText: wrongPanel?.querySelector(".orislop-fact-chat-messages")?.textContent || "",
+            liveIndicatorText: document.querySelector(".orislop-live-indicator")?.textContent || "",
+            liveIndicatorVisible: document.querySelector(".orislop-live-indicator")?.classList.contains("orislop-live-indicator-visible") === true
+          }));
+        }));
+      });
+    </script>
+  </body>
+</html>

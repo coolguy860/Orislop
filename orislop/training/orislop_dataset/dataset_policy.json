@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "seed": 1337,
+  "split_ratios": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15
+  },
+  "heldout_generator_ids": [],
+  "heldout_generator_family_ids": [
+    "replace-with-heldout-family-a",
+    "replace-with-heldout-family-b"
+  ],
+  "production_minimums": {
+    "core_train_per_class": 3500,
+    "core_val_per_class": 750,
+    "core_test_per_class": 750,
+    "safety_genuine_test": 10000,
+    "heldout_generator_families": 2
+  },
+  "short_form_minimums": {
+    "core_genuine": 3500,
+    "core_synthetic": 3500,
+    "safety_genuine": 7000,
+    "core_genuine_vertical": 3000,
+    "core_synthetic_vertical": 3000,
+    "safety_genuine_vertical": 6000,
+    "core_per_context_per_class": 750,
+    "safety_per_context": 1500,
+    "distinct_content_styles": 10
+  },
+  "source_quotas": {
+    "core_genuine_total": 5000,
+    "controlled_or_creator_licensed": 2500,
+    "reviewed_wikimedia": 1500,
+    "reviewed_government_or_institutional": 1000,
+    "core_synthetic_total": 5000,
+    "independent_genuine_safety_total": 10000
+  },
+  "notes": [
+    "Replace both heldout family placeholders with commercially approved generator families before a production split.",
+    "Validation alone selects architecture, calibration, and thresholds. Core test, heldout generators, and the genuine safety corpus remain sealed until everything is frozen.",
+    "The same source, creator, person, face, voice, or scene cannot cross splits even when recordings are otherwise disjoint.",
+    "Social-platform URLs are reference metadata only; acquire a creator master or authorized non-platform direct file.",
+    "The genuine safety corpus is rights-cleared evaluation media, not training or threshold-tuning data.",
+    "Short-form quotas refer to rights-cleared creator masters, controlled captures, or licensed files tagged by feed context; they never authorize platform scraping or downloading."
+  ]
+}

@@ -35,7 +35,11 @@ export function loadFeedbackRecords() {
     }
 }
 export function saveFeedbackRecord(record) {
-    const records = [record, ...loadFeedbackRecords()].slice(0, 200);
+    const records = [
+        record,
+        ...loadFeedbackRecords().filter((existing) => !(existing.videoId === record.videoId
+            && existing.recommendation === record.recommendation))
+    ].slice(0, 200);
     localStorage.setItem(FEEDBACK_KEY, JSON.stringify(records));
     return records;
 }

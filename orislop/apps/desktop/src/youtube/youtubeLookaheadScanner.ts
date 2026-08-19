@@ -34,7 +34,7 @@ export function scanLookaheadFromSnapshots(
 
 export function candidateToExtractedShort(candidate: LookaheadShortCandidate): ExtractedShort {
   const text = [candidate.title, candidate.visiblePageText].filter(Boolean).join(" ");
-  const disclosure = findAiDisclosure(text);
+  const disclosure = findAiDisclosure(candidate.platformAiLabelText ?? "");
   const parsed = parseYouTubeShortsUrl(candidate.url ?? "");
 
   return {
@@ -106,6 +106,7 @@ function candidateFromSnapshot(
   const videoId = normalizeNullable(snapshot.videoId) ?? parsedUrl?.videoId ?? (url ? extractShortsVideoId(url) : null);
   const visiblePageText = normalizeWhitespace(snapshot.visiblePageText ?? "");
   const title = normalizeNullable(snapshot.title);
+  const platformAiLabelText = findAiDisclosure(normalizeWhitespace(snapshot.platformAiLabelText ?? ""));
 
   if (!url && !videoId && !title && !visiblePageText) {
     return null;
@@ -128,6 +129,7 @@ function candidateFromSnapshot(
     channelName: normalizeNullable(snapshot.channelName),
     channelUrl: normalizeNullable(snapshot.channelUrl),
     visiblePageText,
+    platformAiLabelText,
     position,
     confidence: confidenceForCandidate({
       url: normalizedUrl,
@@ -272,6 +274,7 @@ function browserScanLookahead(limit: number): LookaheadShortCandidate[] {
       anchor?.textContent
     ]);
     const visiblePageText = visibleTextWithoutComments(container).slice(0, 4000);
+    const platformAiLabelText = platformAiDisclosureText(container);
     const position = hasActiveContainer && (container.hasAttribute("is-active") || index === activeIndex)
       ? "current"
       : (!hasActiveContainer && index === 0) || index === activeIndex + 1
@@ -290,6 +293,7 @@ function browserScanLookahead(limit: number): LookaheadShortCandidate[] {
       channelName: normalizePlain(channel?.textContent ?? "") || null,
       channelUrl: channel?.href ?? null,
       visiblePageText,
+      platformAiLabelText,
       position,
       confidence: confidence({
         url,
@@ -317,6 +321,31 @@ function browserScanLookahead(limit: number): LookaheadShortCandidate[] {
     const clone = container.cloneNode(true) as HTMLElement;
     clone.querySelectorAll("ytd-comments, #comments, [id*='comment'], [class*='comment']").forEach((node) => node.remove());
     return normalizePlain(clone.innerText || clone.textContent || "");
+  }
+
+  function platformAiDisclosureText(container: HTMLElement): string | null {
+    const selectors = [
+      "[aria-label*='altered or synthetic content' i]",
+      "[title*='altered or synthetic content' i]",
+      "[aria-label*='how this content was made' i]",
+      "ytd-info-panel-content-renderer",
+      "yt-factoid-renderer"
+    ];
+    for (const selector of selectors) {
+      for (const node of Array.from(container.querySelectorAll<HTMLElement>(selector))) {
+        const text = normalizePlain([
+          node.getAttribute("aria-label"),
+          node.getAttribute("title"),
+          node.innerText,
+          node.textContent
+        ].filter(Boolean).join(" "));
+        const match = text.match(/(?:altered or synthetic content|includes? altered or synthetic content|created or altered with ai|generated or altered with ai|how this content was made)/i);
+        if (match) {
+          return match[0];
+        }
+      }
+    }
+    return null;
   }
 
   function plainVideoIdFromUrl(value: string | null): string | null {

@@ -1,0 +1,8 @@
+huggingface-hub>=0.36,<2
+numpy>=2,<3
+opencv-python-headless>=4.10,<5
+safetensors>=0.5,<1
+scikit-learn>=1.6,<2
+tqdm>=4.66,<5
+transformers>=4.48,<6
+truststore>=0.10,<1

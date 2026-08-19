@@ -8,6 +8,24 @@ Instead of blocking social media entirely, Orislop changes what users see inside
 
 > **Current status:** Active prototype under development. Models, classifications, and platform integrations are still being tested and improved.
 
+## Complete-stack GPU test release
+
+The `orislop/` directory now contains the v1.3 complete-stack test source: the
+browser extension, detector bridge, adaptive Heavy scheduler with first-run GPU
+autotuning, temporal MoE and AV/lip-sync integration, Ollama integration,
+training/evaluation utilities, Vast launchers, and private SSH-tunnel tests.
+
+- Start with [`orislop/START_HERE_TESTING.md`](orislop/START_HERE_TESTING.md).
+- GPU deployment details are in [`orislop/VAST_RTX3090_DEPLOY.md`](orislop/VAST_RTX3090_DEPLOY.md).
+- The exact complete model release is pinned to private Hugging Face revision
+  `gonnerthetooner/orislop-complete-stack-v1@09f0510580de5a8c11393adc7d7905ab40b200ab`.
+- Large upstream/model weights are materialized and hash-verified at startup;
+  they are intentionally not duplicated in Git history.
+
+For the first live test, keep detector port `4317` private, connect through the
+packaged SSH tunnel, run the CUDA/component smoke check, and then submit a real
+Heavy video with `orislop/scripts/test-extension-bridge.ps1`.
+
 ---
 
 ## The problem

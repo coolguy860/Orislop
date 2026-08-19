@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>LinkedIn adapter fixture</title></head>
+  <body>
+    <main>
+      <article id="candidate" data-urn="urn:li:activity:123456789">
+        <a class="update-components-actor__name" href="https://www.linkedin.com/in/alex-example/">Alex Example</a>
+        <a href="https://www.linkedin.com/feed/update/urn:li:activity:123456789/">Open post</a>
+        <div class="update-components-text">Customer retention increased after our verified onboarding program.</div>
+        <figure>
+          <img class="update-components-image__image" width="960" height="540"
+            src="https://media.licdn.com/dms/image/example"
+            alt="Chart: customer retention rose 42 percent in 2025" />
+        </figure>
+      </article>
+    </main>
+    <script>globalThis.__ORISLOP_TEST__ = true;</script>
+    <script src="../../src/aiClassifierModel.generated.js"></script>
+    <script src="../../src/classifier.js"></script>
+    <script src="../../src/platformAdapters.js"></script>
+    <script src="../../src/controlCore.js"></script>
+    <script src="../../src/contentScript.js"></script>
+    <script>
+      const api = globalThis.__ORISLOP_EXTENSION_TEST_API__;
+      const element = document.getElementById("candidate");
+      const candidate = api.extractCandidate(element, "linkedin");
+      const decision = globalThis.OrislopClassifier.scoreCandidate(candidate);
+      document.body.dataset.result = encodeURIComponent(JSON.stringify({
+        platform: candidate.platform,
+        itemId: candidate.itemId,
+        itemKind: candidate.itemKind,
+        title: candidate.title,
+        creator: candidate.channelName,
+        imageText: candidate.imageText,
+        previewUrl: candidate.previewUrl,
+        mediaType: candidate.mediaType,
+        fullVideoAnalysisRequested: candidate.fullVideoAnalysisRequested,
+        factCheckEligible: decision.factCheckEligible
+      }));
+    </script>
+  </body>
+</html>

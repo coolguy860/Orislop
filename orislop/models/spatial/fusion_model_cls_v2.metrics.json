@@ -1,0 +1,326 @@
+{
+  "ai_model_id": "umm-maybe/AI-image-detector",
+  "ai_model_revision": "c7e223baf11bc40528af364ba7bdea030ef42f9e",
+  "clip_model_id": "openai/clip-vit-base-patch32",
+  "clip_model_revision": "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
+  "encoder_contract": "vit_cls_v2",
+  "format_version": 2,
+  "manifest_fingerprints": {
+    "test": "1d3f0f83ad6136fb469c3f4773dd79664bdee59128ba2ef54fe5f48363d314f1",
+    "train": "e7a6a40f4febd82cd07944dc79ef4db97ba15058f1b216074da403b119dadac7",
+    "validation": "4d965ab51e41439ca096487d0b41fb9ac898995779f220bb5fcb8f5332efff61"
+  },
+  "sample_counts": {
+    "test": 320,
+    "train": 2592,
+    "validation": 288
+  },
+  "seed": 1337,
+  "temperature": 0.682333197734385,
+  "test_metrics": {
+    "accuracy": 0.746875,
+    "auc": 0.9314692982456141,
+    "brier_score": 0.11360739150081597,
+    "confidence_histogram": [
+      {
+        "avg_probability": 0.007277391790686285,
+        "count": 85,
+        "fake_rate": 0.0,
+        "lower": 0.0,
+        "upper": 0.06666666666666667
+      },
+      {
+        "avg_probability": 0.09986207634210587,
+        "count": 21,
+        "fake_rate": 0.3333333333333333,
+        "lower": 0.06666666666666667,
+        "upper": 0.13333333333333333
+      },
+      {
+        "avg_probability": 0.17100686105814847,
+        "count": 11,
+        "fake_rate": 0.2727272727272727,
+        "lower": 0.13333333333333333,
+        "upper": 0.2
+      },
+      {
+        "avg_probability": 0.23014382330270913,
+        "count": 13,
+        "fake_rate": 0.6153846153846154,
+        "lower": 0.2,
+        "upper": 0.26666666666666666
+      },
+      {
+        "avg_probability": 0.2890330304702123,
+        "count": 12,
+        "fake_rate": 0.4166666666666667,
+        "lower": 0.26666666666666666,
+        "upper": 0.3333333333333333
+      },
+      {
+        "avg_probability": 0.36816157235039604,
+        "count": 9,
+        "fake_rate": 0.4444444444444444,
+        "lower": 0.3333333333333333,
+        "upper": 0.4
+      },
+      {
+        "avg_probability": 0.4268211781978607,
+        "count": 10,
+        "fake_rate": 0.6,
+        "lower": 0.4,
+        "upper": 0.4666666666666667
+      },
+      {
+        "avg_probability": 0.5008212327957153,
+        "count": 9,
+        "fake_rate": 0.5555555555555556,
+        "lower": 0.4666666666666667,
+        "upper": 0.5333333333333333
+      },
+      {
+        "avg_probability": 0.5621850937604904,
+        "count": 8,
+        "fake_rate": 0.5,
+        "lower": 0.5333333333333333,
+        "upper": 0.6
+      },
+      {
+        "avg_probability": 0.6360929987647317,
+        "count": 11,
+        "fake_rate": 0.36363636363636365,
+        "lower": 0.6,
+        "upper": 0.6666666666666666
+      },
+      {
+        "avg_probability": 0.6920157472292582,
+        "count": 6,
+        "fake_rate": 0.6666666666666666,
+        "lower": 0.6666666666666666,
+        "upper": 0.7333333333333333
+      },
+      {
+        "avg_probability": 0.7691212967038155,
+        "count": 8,
+        "fake_rate": 0.875,
+        "lower": 0.7333333333333333,
+        "upper": 0.8
+      },
+      {
+        "avg_probability": 0.846269503235817,
+        "count": 8,
+        "fake_rate": 1.0,
+        "lower": 0.8,
+        "upper": 0.8666666666666667
+      },
+      {
+        "avg_probability": 0.8978068407844094,
+        "count": 17,
+        "fake_rate": 0.6470588235294118,
+        "lower": 0.8666666666666667,
+        "upper": 0.9333333333333333
+      },
+      {
+        "avg_probability": 0.9885057625563248,
+        "count": 92,
+        "fake_rate": 1.0,
+        "lower": 0.9333333333333333,
+        "upper": 1.0
+      }
+    ],
+    "confusion_matrix": [
+      [
+        152,
+        0
+      ],
+      [
+        81,
+        87
+      ]
+    ],
+    "ece": 0.0847960440281895,
+    "f1": 0.6823529411764707,
+    "fake_fnr": 0.48214285714285715,
+    "fake_recall_at_fixed_real_fpr": {
+      "0.001": 0.5595238095238095,
+      "0.01": 0.5595238095238095,
+      "0.05": 0.7023809523809523
+    },
+    "n": 320,
+    "precision": 1.0,
+    "real_fpr": 0.0,
+    "real_fpr_at_fixed_fake_recall": {
+      "0.9": 0.2631578947368421,
+      "0.95": 0.34210526315789475,
+      "0.99": 0.4144736842105263
+    },
+    "recall": 0.5178571428571429,
+    "roc_auc": 0.9314692982456141,
+    "sample_counts": {
+      "fake": 168,
+      "real": 152
+    },
+    "threshold": 0.968333899974823
+  },
+  "threshold": 0.968333899974823,
+  "threshold_selection": {
+    "method": "target_real_fpr",
+    "selected_at": "2026-07-15T00:12:51.706590+00:00",
+    "target_fake_recall": 0.95,
+    "target_real_fpr": 0.001,
+    "threshold": 0.968333899974823,
+    "validation_operating_point": {
+      "fake_recall": 0.4768211920529801,
+      "real_fpr": 0.0,
+      "threshold": 0.968333899974823
+    }
+  },
+  "training_seconds": 6.332650200001808,
+  "validation_metrics": {
+    "accuracy": 0.7256944444444444,
+    "auc": 0.9555759655822498,
+    "brier_score": 0.0878199966879902,
+    "confidence_histogram": [
+      {
+        "avg_probability": 0.006479538153283871,
+        "count": 78,
+        "fake_rate": 0.01282051282051282,
+        "lower": 0.0,
+        "upper": 0.06666666666666667
+      },
+      {
+        "avg_probability": 0.10284254413384658,
+        "count": 13,
+        "fake_rate": 0.07692307692307693,
+        "lower": 0.06666666666666667,
+        "upper": 0.13333333333333333
+      },
+      {
+        "avg_probability": 0.1617237001657486,
+        "count": 15,
+        "fake_rate": 0.2,
+        "lower": 0.13333333333333333,
+        "upper": 0.2
+      },
+      {
+        "avg_probability": 0.2292511590889522,
+        "count": 14,
+        "fake_rate": 0.42857142857142855,
+        "lower": 0.2,
+        "upper": 0.26666666666666666
+      },
+      {
+        "avg_probability": 0.30443350474039715,
+        "count": 3,
+        "fake_rate": 0.6666666666666666,
+        "lower": 0.26666666666666666,
+        "upper": 0.3333333333333333
+      },
+      {
+        "avg_probability": 0.3427722964968,
+        "count": 7,
+        "fake_rate": 0.14285714285714285,
+        "lower": 0.3333333333333333,
+        "upper": 0.4
+      },
+      {
+        "avg_probability": 0.43417403697967527,
+        "count": 5,
+        "fake_rate": 0.8,
+        "lower": 0.4,
+        "upper": 0.4666666666666667
+      },
+      {
+        "avg_probability": 0.5049895495176315,
+        "count": 16,
+        "fake_rate": 0.4375,
+        "lower": 0.4666666666666667,
+        "upper": 0.5333333333333333
+      },
+      {
+        "avg_probability": 0.5576745122671127,
+        "count": 8,
+        "fake_rate": 0.625,
+        "lower": 0.5333333333333333,
+        "upper": 0.6
+      },
+      {
+        "avg_probability": 0.6358882983525594,
+        "count": 9,
+        "fake_rate": 0.8888888888888888,
+        "lower": 0.6,
+        "upper": 0.6666666666666666
+      },
+      {
+        "avg_probability": 0.7003326084878709,
+        "count": 9,
+        "fake_rate": 0.7777777777777778,
+        "lower": 0.6666666666666666,
+        "upper": 0.7333333333333333
+      },
+      {
+        "avg_probability": 0.768647293249766,
+        "count": 12,
+        "fake_rate": 0.8333333333333334,
+        "lower": 0.7333333333333333,
+        "upper": 0.8
+      },
+      {
+        "avg_probability": 0.8315554923481412,
+        "count": 9,
+        "fake_rate": 0.8888888888888888,
+        "lower": 0.8,
+        "upper": 0.8666666666666667
+      },
+      {
+        "avg_probability": 0.9043015837669373,
+        "count": 12,
+        "fake_rate": 0.9166666666666666,
+        "lower": 0.8666666666666667,
+        "upper": 0.9333333333333333
+      },
+      {
+        "avg_probability": 0.9876110003544734,
+        "count": 78,
+        "fake_rate": 0.9871794871794872,
+        "lower": 0.9333333333333333,
+        "upper": 1.0
+      }
+    ],
+    "confusion_matrix": [
+      [
+        137,
+        0
+      ],
+      [
+        79,
+        72
+      ]
+    ],
+    "ece": 0.0506185185739822,
+    "f1": 0.6457399103139013,
+    "fake_fnr": 0.5231788079470199,
+    "fake_recall_at_fixed_real_fpr": {
+      "0.001": 0.4768211920529801,
+      "0.01": 0.543046357615894,
+      "0.05": 0.7350993377483444
+    },
+    "n": 288,
+    "precision": 1.0,
+    "real_fpr": 0.0,
+    "real_fpr_at_fixed_fake_recall": {
+      "0.9": 0.145985401459854,
+      "0.95": 0.24087591240875914,
+      "0.99": 0.3795620437956204
+    },
+    "recall": 0.4768211920529801,
+    "roc_auc": 0.9555759655822498,
+    "sample_counts": {
+      "fake": 151,
+      "real": 137
+    },
+    "threshold": 0.968333899974823
+  },
+  "vision_model_id": "google/vit-base-patch16-224",
+  "vision_model_revision": "3f49326eb077187dfe1c2a2bb15fbd74e6ab91e3"
+}

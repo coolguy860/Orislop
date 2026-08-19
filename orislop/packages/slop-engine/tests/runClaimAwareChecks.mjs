@@ -6,6 +6,8 @@ import {
   buildVerificationQuery,
   summarizeMockSourceResults
 } from "../src/verification/sourceVerification.ts";
+import { fuseSignals } from "../src/fuseSignals.ts";
+import { normalizeSettings } from "../src/settings.ts";
 
 runChecks();
 console.log("Claim-aware deep scan checks passed.");
@@ -109,8 +111,48 @@ function runChecks() {
     visiblePageText: "risk free profit crypto signals",
     transcript: "DM me for guaranteed returns and copy my trades."
   });
-  assertEqual("high-risk claim verification status", scam.verificationStatus, "checking");
+  assertEqual("high-risk claim verification status", scam.verificationStatus, "unavailable");
+  assert(
+    scam.verificationSummary?.notes.some((note) => note.includes("no production source verifier")),
+    "claim verification accurately reports the disconnected verifier"
+  );
   assert(buildVerificationQuery(scamShort()).includes("source evidence"), "verification query is built");
+
+  const disabledCategoryFusion = fuseSignals([{
+    name: "mixed_category_probe",
+    score: 0.9,
+    confidence: 1,
+    applicable: true,
+    categories: ["scam_finance", "engagement_bait"],
+    evidence: [
+      {
+        reasonId: "probe_scam",
+        label: "Scam probe",
+        detail: "High disabled-category evidence",
+        weight: 0.9,
+        confidence: 1,
+        source: "regression",
+        category: "scam_finance"
+      },
+      {
+        reasonId: "probe_bait",
+        label: "Bait probe",
+        detail: "Weak enabled-category evidence",
+        weight: 0.2,
+        confidence: 1,
+        source: "regression",
+        category: "engagement_bait"
+      }
+    ],
+    reason: "Regression probe"
+  }], normalizeSettings({
+    skipScamFinance: false,
+    skipEngagementBait: true
+  }));
+  assert(
+    disabledCategoryFusion.skipProbability < 0.4,
+    "disabled scam evidence does not leak through an enabled engagement category"
+  );
 
   const mixed = summarizeMockSourceResults("crypto signal guaranteed returns source evidence", [
     { host: "investor.gov", stance: "contradicts" },

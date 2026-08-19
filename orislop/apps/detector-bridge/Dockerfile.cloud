@@ -1,0 +1,68 @@
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+
+ARG CLOUDFLARED_VERSION=2026.7.0
+ARG CLOUDFLARED_SHA256=434a04eb237e07d3d4146fc44acdbb411260a94fcb01764f454abe38a09503f3
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH=/opt/orislop-venv/bin:$PATH \
+    ORISLOP_DETECTOR_HOST=0.0.0.0 \
+    ORISLOP_DETECTOR_PORT=4317 \
+    ORISLOP_REQUIRE_API_AUTH=1 \
+    ORISLOP_ALLOW_ORIGINLESS_POSTS=0 \
+    ORISLOP_CLOUD_HEAVY_ENABLED=1 \
+    ORISLOP_CLOUD_HEAVY_DEVICE=cuda \
+    ORISLOP_SPATIAL_DEVICE=cuda \
+    ORISLOP_SPATIAL_AUX_DEVICE=cuda \
+    ORISLOP_CLOUD_HEAVY_ROLLOUT=shadow \
+    ORISLOP_CLOUD_BETA_AUTOMATIC_HIDES=0 \
+    ORISLOP_LIGHTWEIGHT_WORKERS=auto \
+    ORISLOP_EXECUTION_MODE=auto \
+    ORISLOP_AUTOTUNE_MODE=first-run \
+    ORISLOP_AUTOTUNE_REPEATS=2 \
+    ORISLOP_AUTOTUNE_MAX_SECONDS=240 \
+    ORISLOP_AUTOTUNE_WARMUP=1 \
+    ORISLOP_AUTOTUNE_OUTPUT_TOLERANCE=0.002 \
+    ORISLOP_AUTOTUNE_RESET=0 \
+    ORISLOP_GPU_RESERVE_GIB=3.5 \
+    ORISLOP_GPU_RESERVE_FRACTION=0.12 \
+    ORISLOP_OOM_COOLDOWN_SECONDS=300 \
+    ORISLOP_PRELOAD_HEAVY_MODE=1 \
+    ORISLOP_DETECTOR_CACHE=/models/orislop-cache \
+    HF_HOME=/models/huggingface \
+    HF_HUB_CACHE=/models/huggingface/hub \
+    HF_XET_HIGH_PERFORMANCE=1 \
+    TRANSFORMERS_CACHE=/models/huggingface/transformers \
+    TORCH_HOME=/models/torch \
+    CUDA_MODULE_LOADING=LAZY \
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,max_split_size_mb:256 \
+    TOKENIZERS_PARALLELISM=true \
+    OMP_NUM_THREADS=4 \
+    MKL_NUM_THREADS=4
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg python3 python3-pip python3-venv tesseract-ocr \
+    && curl --fail --location --silent --show-error \
+      "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" \
+      --output /tmp/cloudflared \
+    && echo "${CLOUDFLARED_SHA256}  /tmp/cloudflared" | sha256sum --check --strict \
+    && install -m 0755 /tmp/cloudflared /usr/local/bin/cloudflared \
+    && rm -f /tmp/cloudflared \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY apps/detector-bridge/requirements.txt /tmp/orislop-requirements.txt
+RUN python3 -m venv /opt/orislop-venv \
+    && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /tmp/orislop-requirements.txt
+
+COPY . /app
+RUN chmod 0755 /app/apps/detector-bridge/cloud-heavy-entrypoint.sh
+
+VOLUME ["/models"]
+EXPOSE 4317
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10m --retries=3 \
+  CMD curl --fail --silent http://127.0.0.1:4317/ready >/dev/null || exit 1
+
+ENTRYPOINT ["/app/apps/detector-bridge/cloud-heavy-entrypoint.sh"]

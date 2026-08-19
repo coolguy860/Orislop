@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "lightweightSynthetic": 0.94,
+  "spatialSynthetic": 0.968333899974823,
+  "temporalSynthetic": 0.72,
+  "combinedSynthetic": 0.72,
+  "minimumCorroborating": 0.55,
+  "combinedWeights": {
+    "spatial": 0.45,
+    "temporal": 0.55
+  },
+  "behavior": "Corroborated spatial, temporal, weighted, or lightweight-plus-heavy synthetic evidence produces a non-vetoable 100/100 Skip; isolated model spikes fail open."
+}

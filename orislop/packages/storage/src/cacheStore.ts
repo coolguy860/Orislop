@@ -41,7 +41,11 @@ export class CacheStore {
 
     const file = await this.loadPrunedFile();
     const record = file.records[cacheKeyForVideo(video)];
-    if (!record || record.settingsHash !== settingsHash(settings)) {
+    if (
+      !record
+      || record.settingsHash !== settingsHash(settings)
+      || record.extractionHash !== extractionHash(video)
+    ) {
       return null;
     }
 
@@ -51,6 +55,7 @@ export class CacheStore {
   async saveScore(
     scoreResult: OrislopScoreResult,
     settings: OrislopSettings,
+    video: CacheLookupInput = scoreResult,
     timestamp = nowIso(this.now)
   ): Promise<ScoreCacheRecord> {
     const file = await this.loadPrunedFile();
@@ -60,7 +65,8 @@ export class CacheStore {
       url: scoreResult.url,
       scoreResult,
       timestamp,
-      settingsHash: settingsHash(settings)
+      settingsHash: settingsHash(settings),
+      extractionHash: extractionHash(video)
     };
 
     file.records[record.cacheKey] = record;
@@ -123,6 +129,28 @@ export function settingsHash(settings: OrislopSettings): string {
   return `settings-v1:${stableStringify(cacheRelevantSettings)}`;
 }
 
+export function extractionHash(video: CacheLookupInput): string {
+  const extraction = {
+    title: normalizeText(video.title),
+    channelName: normalizeText(video.channelName),
+    channelUrl: normalizeText(video.channelUrl),
+    description: normalizeText(video.description),
+    hashtags: [...(video.hashtags ?? [])].map(normalizeText).sort(),
+    visiblePageText: normalizeText(video.visiblePageText),
+    hasPlatformAiLabel: video.hasPlatformAiLabel === true,
+    platformAiLabelText: normalizeText(video.platformAiLabelText),
+    transcript: normalizeText(video.transcript),
+    audioTrackTitle: normalizeText(video.audioTrackTitle),
+    audioIsSong: video.audioIsSong === true,
+    videoDurationSec: typeof video.videoDurationSec === "number" && Number.isFinite(video.videoDurationSec)
+      ? Math.round(video.videoDurationSec)
+      : null,
+    isLikelyAd: video.isLikelyAd === true,
+    adNoticeText: normalizeText(video.adNoticeText)
+  };
+  return `extraction-v2:${smallHash(stableStringify(extraction))}`;
+}
+
 function emptyCacheFile(): CacheFile {
   return {
     version: 1,
@@ -136,7 +164,21 @@ function isScoreCacheRecord(value: unknown): value is ScoreCacheRecord {
     && typeof value.url === "string"
     && typeof value.timestamp === "string"
     && typeof value.settingsHash === "string"
+    && typeof value.extractionHash === "string"
     && isRecord(value.scoreResult);
+}
+
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function smallHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function isExpired(timestamp: string, retentionMs: number, now?: () => Date): boolean {

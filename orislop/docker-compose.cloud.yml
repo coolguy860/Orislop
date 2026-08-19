@@ -1,0 +1,111 @@
+services:
+  ollama:
+    image: ${ORISLOP_OLLAMA_IMAGE:-ollama/ollama:0.32.0}
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: ${ORISLOP_OLLAMA_KEEP_ALIVE:-24h}
+    volumes:
+      - ollama-models:/root/.ollama
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ollama-init:
+    image: ${ORISLOP_OLLAMA_IMAGE:-ollama/ollama:0.32.0}
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      ORISLOP_OLLAMA_MODEL: ${ORISLOP_OLLAMA_MODEL:-qwen2.5:1.5b-instruct}
+    entrypoint: ["/bin/sh", "-lc"]
+    command: ['ollama show "$$ORISLOP_OLLAMA_MODEL" >/dev/null 2>&1 || ollama pull "$$ORISLOP_OLLAMA_MODEL"']
+
+  orislop-cloud-heavy:
+    build:
+      context: .
+      dockerfile: apps/detector-bridge/Dockerfile.cloud
+    restart: unless-stopped
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
+    environment:
+      ORISLOP_API_TOKENS: ${ORISLOP_API_TOKENS:?Set a long bootstrap/admin API token}
+      ORISLOP_ALLOWED_EXTENSION_ORIGINS: ${ORISLOP_ALLOWED_EXTENSION_ORIGINS:?Set the exact unlisted chrome-extension origin}
+      ORISLOP_GOOGLE_OAUTH_CLIENT_ID: ${ORISLOP_GOOGLE_OAUTH_CLIENT_ID:?Set the Chrome Extension OAuth client ID}
+      ORISLOP_TOKEN_SECRET: ${ORISLOP_TOKEN_SECRET:?Set a random 32-byte or longer signing secret}
+      ORISLOP_CONTENT_HMAC_SECRET: ${ORISLOP_CONTENT_HMAC_SECRET:?Set a separate random content-key secret}
+      DATABASE_URL: ${DATABASE_URL:?Set the managed Postgres URL}
+      ORISLOP_TEMP_MEDIA_ROOT: /run/orislop-media
+      ORISLOP_DIAGNOSTIC_BUCKET: ${ORISLOP_DIAGNOSTIC_BUCKET:?Set the dedicated seven-day diagnostic bucket}
+      ORISLOP_S3_ENDPOINT: ${ORISLOP_S3_ENDPOINT:?Set the S3-compatible endpoint}
+      ORISLOP_S3_REGION: ${ORISLOP_S3_REGION:-auto}
+      ORISLOP_S3_ACCESS_KEY_ID: ${ORISLOP_S3_ACCESS_KEY_ID:?Set the object-store access key}
+      ORISLOP_S3_SECRET_ACCESS_KEY: ${ORISLOP_S3_SECRET_ACCESS_KEY:?Set the object-store secret key}
+      HF_TOKEN: ${HF_TOKEN:-}
+      ORISLOP_OLLAMA_URL: http://ollama:11434
+      ORISLOP_TRUSTED_OLLAMA_HOST: ollama
+      ORISLOP_OLLAMA_MODEL: ${ORISLOP_OLLAMA_MODEL:-qwen2.5:1.5b-instruct}
+      ORISLOP_OLLAMA_KEEP_ALIVE: ${ORISLOP_OLLAMA_KEEP_ALIVE:-24h}
+      ORISLOP_SPATIAL_AUX_DEVICE: ${ORISLOP_SPATIAL_AUX_DEVICE:-cuda}
+      ORISLOP_TEMPORAL_ENABLED: ${ORISLOP_TEMPORAL_ENABLED:-1}
+      ORISLOP_TEMPORAL_PACKAGE_PATH: ${ORISLOP_TEMPORAL_PACKAGE_PATH:-}
+      ORISLOP_TEMPORAL_HF_REPO_ID: ${ORISLOP_TEMPORAL_HF_REPO_ID:-}
+      ORISLOP_TEMPORAL_HF_REVISION: ${ORISLOP_TEMPORAL_HF_REVISION:-}
+      ORISLOP_TEMPORAL_HF_SUBDIR: ${ORISLOP_TEMPORAL_HF_SUBDIR:-final_model_package}
+      ORISLOP_TEMPORAL_MODEL_SHA256: ${ORISLOP_TEMPORAL_MODEL_SHA256:-}
+      ORISLOP_TEMPORAL_LEGACY_FALLBACK: "0"
+      ORISLOP_TEMPORAL_ROLLOUT: ${ORISLOP_TEMPORAL_ROLLOUT:-corroborated}
+      ORISLOP_REQUIRE_FULL_MODEL_STACK: ${ORISLOP_REQUIRE_FULL_MODEL_STACK:-1}
+      ORISLOP_AV_JOINT_ENABLED: ${ORISLOP_AV_JOINT_ENABLED:-1}
+      ORISLOP_AV_JOINT_MODEL_PATH: ${ORISLOP_AV_JOINT_MODEL_PATH:-/models/av/orislop_av_joint_v1.ts}
+      ORISLOP_AV_JOINT_METADATA_PATH: ${ORISLOP_AV_JOINT_METADATA_PATH:-/models/av/orislop_av_joint_v1.json}
+      ORISLOP_YUNET_MODEL_PATH: ${ORISLOP_YUNET_MODEL_PATH:-/models/av/face_detection_yunet_2023mar.onnx}
+      ORISLOP_TEMPORAL_AV_FUSION_PATH: ${ORISLOP_TEMPORAL_AV_FUSION_PATH:-/models/temporal/stage2_temporal_av_fusion.pt}
+      ORISLOP_TEMPORAL_AV_CALIBRATION_PATH: ${ORISLOP_TEMPORAL_AV_CALIBRATION_PATH:-/models/temporal/stage3_temporal_av_calibration.pt}
+      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set the Cloudflare Tunnel token for api.orislop.com}
+      ORISLOP_CLOUD_HEAVY_ROLLOUT: ${ORISLOP_CLOUD_HEAVY_ROLLOUT:-shadow}
+      ORISLOP_CLOUD_BETA_AUTOMATIC_HIDES: ${ORISLOP_CLOUD_BETA_AUTOMATIC_HIDES:-0}
+      ORISLOP_LIGHTWEIGHT_WORKERS: ${ORISLOP_LIGHTWEIGHT_WORKERS:-auto}
+      ORISLOP_EXECUTION_MODE: ${ORISLOP_EXECUTION_MODE:-auto}
+      ORISLOP_AUTOTUNE_MODE: ${ORISLOP_AUTOTUNE_MODE:-first-run}
+      ORISLOP_AUTOTUNE_REPEATS: ${ORISLOP_AUTOTUNE_REPEATS:-2}
+      ORISLOP_AUTOTUNE_MAX_SECONDS: ${ORISLOP_AUTOTUNE_MAX_SECONDS:-240}
+      ORISLOP_AUTOTUNE_WARMUP: ${ORISLOP_AUTOTUNE_WARMUP:-1}
+      ORISLOP_AUTOTUNE_OUTPUT_TOLERANCE: ${ORISLOP_AUTOTUNE_OUTPUT_TOLERANCE:-0.002}
+      ORISLOP_AUTOTUNE_RESET: ${ORISLOP_AUTOTUNE_RESET:-0}
+      ORISLOP_GPU_RESERVE_GIB: ${ORISLOP_GPU_RESERVE_GIB:-3.5}
+      ORISLOP_GPU_RESERVE_FRACTION: ${ORISLOP_GPU_RESERVE_FRACTION:-0.12}
+      ORISLOP_OOM_COOLDOWN_SECONDS: ${ORISLOP_OOM_COOLDOWN_SECONDS:-300}
+      ORISLOP_PRELOAD_HEAVY_MODE: ${ORISLOP_PRELOAD_HEAVY_MODE:-1}
+    ports:
+      - "127.0.0.1:4317:4317"
+    volumes:
+      - orislop-models:/models
+    tmpfs:
+      - /run/orislop-media:size=4g,mode=0700
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  orislop-models:
+  ollama-models:

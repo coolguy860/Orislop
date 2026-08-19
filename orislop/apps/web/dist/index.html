@@ -3,15 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Orislop is an early static browser prototype for detecting online slop before it wastes your time." />
-    <title>Orislop</title>
+    <meta name="description" content="Orislop Shield is privacy-conscious feed intelligence for YouTube, Instagram Reels, TikTok, and LinkedIn." />
+    <meta name="theme-color" content="#080c12" />
+    <meta name="orislop-release" content="orislop-shield-web-1.3.0-2026-08-18" />
+    <link rel="icon" href="./assets/brand/orislop_feedcut_icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="./assets/brand/icon_32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="./assets/brand/icon_256.png" />
+    <title>Orislop Shield · Your attention deserves a firewall</title>
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
     <div id="root">
       <noscript>
-        <div class="no-script">Orislop needs JavaScript enabled for the static analyzer demo.</div>
+        <div class="no-script">Orislop Shield needs JavaScript enabled for the analyzer.</div>
       </noscript>
+      <section class="static-load-fallback" aria-live="polite">
+        <p class="eyebrow">Orislop Shield</p>
+        <h1>Serve this build over HTTP.</h1>
+        <p>
+          If this message stays on screen, the JavaScript module did not load. Do not open
+          <code>index.html</code> directly with <code>file://</code>. Run
+          <code>pnpm run web:preview</code> and open the printed local URL, or upload the
+          build to normal HTTPS hosting.
+        </p>
+      </section>
     </div>
     <script type="module" src="./assets/main.js"></script>
   </body>

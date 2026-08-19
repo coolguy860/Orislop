@@ -45,7 +45,22 @@ export type FeedbackRecordInput = Omit<FeedbackRecord, "timestamp"> & {
   timestamp?: string;
 };
 
-export type CacheLookupInput = Pick<ExtractedShort, "videoId" | "url">;
+export type CacheLookupInput = Pick<ExtractedShort, "videoId" | "url"> & Partial<Pick<ExtractedShort,
+  | "title"
+  | "channelName"
+  | "channelUrl"
+  | "description"
+  | "hashtags"
+  | "visiblePageText"
+  | "hasPlatformAiLabel"
+  | "platformAiLabelText"
+  | "transcript"
+  | "audioTrackTitle"
+  | "audioIsSong"
+  | "videoDurationSec"
+  | "isLikelyAd"
+  | "adNoticeText"
+>>;
 
 export type ScoreCacheRecord = {
   cacheKey: string;
@@ -54,6 +69,7 @@ export type ScoreCacheRecord = {
   scoreResult: OrislopScoreResult;
   timestamp: string;
   settingsHash: string;
+  extractionHash: string;
 };
 
 export type ScoreCacheStoreOptions = StoreOptions & {

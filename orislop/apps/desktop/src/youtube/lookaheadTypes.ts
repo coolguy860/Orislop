@@ -17,6 +17,7 @@ export type LookaheadShortCandidate = {
   channelName: string | null;
   channelUrl: string | null;
   visiblePageText: string;
+  platformAiLabelText: string | null;
   position: LookaheadPosition;
   confidence: number;
 };
@@ -28,6 +29,7 @@ export type LookaheadContainerSnapshot = {
   channelName?: string | null;
   channelUrl?: string | null;
   visiblePageText?: string | null;
+  platformAiLabelText?: string | null;
   position?: LookaheadPosition;
   isActive?: boolean;
 };

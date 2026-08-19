@@ -1,0 +1,38 @@
+# Vercel publishes only the static website and its bundled extension.
+# Keep detector environments, training material, and cloud/desktop artifacts out
+# of the upload so deployments stay deterministic and below Vercel's file cap.
+.git/
+.github/
+.vercel/
+.venv-detector/
+.cache/
+node_modules/
+dist/
+build/
+out/
+.env
+.env.*
+*.log
+*.zip
+*.mp4
+*.mov
+*.pt
+*.pth
+*.onnx
+__pycache__/
+
+training/
+core/
+docs/
+configs/
+data/
+packages/
+models/spatial/
+apps/desktop/
+apps/detector-bridge/
+apps/windows-companion/
+scripts/*.py
+scripts/*.ps1
+
+.dockerignore
+docker-compose.cloud.yml

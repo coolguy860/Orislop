@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "modelId": "gonnerthetooner/orislop-av-joint",
+  "modelVersion": "orislop-av-joint-v1",
+  "model": {
+    "sample_rate": 16000,
+    "target_fps": 25,
+    "initial_seconds": 2,
+    "maximum_seconds": 8,
+    "mouth_size": 112,
+    "max_faces": 4,
+    "embedding_dim": 256,
+    "transformer_layers": 4,
+    "transformer_heads": 8,
+    "max_offset_frames": 10
+  },
+  "input": {
+    "sampleRate": 16000,
+    "targetFps": 25,
+    "initialSeconds": 2,
+    "escalationSeconds": [4, 8],
+    "mouthSize": 112,
+    "maxFaces": 4
+  },
+  "gates": {
+    "minimumFaceCoverage": 0.65,
+    "minimumSpeechRatio": 0.15,
+    "minimumMouthMotion": 0.008,
+    "minimumSnrDb": 4.0,
+    "minimumActiveSpeakerProbability": 0.7,
+    "maximumUncertainty": 0.8
+  },
+  "rollout": {
+    "mode": "shadow",
+    "minimumCommercialSpeakers": 100,
+    "minimumCommercialHours": 50,
+    "minimumShadowDecisions": 10000,
+    "maximumGenuineHideRate": 0.001,
+    "minimumAvRecall": 0.95,
+    "minimumEndToEndRecall": 0.9,
+    "maximumExpectedCalibrationError": 0.03,
+    "initialLatencyP95Ms": 1500,
+    "escalatedLatencyP95Ms": 4000,
+    "englishOnlyAutoSkip": true
+  },
+  "fusion": {
+    "avRequiresIndependentSpatial": true,
+    "allowStandaloneAvSkip": false,
+    "allowStandaloneSpatialSkip": false,
+    "experimentalSpatialAwareTemporal": false
+  }
+}

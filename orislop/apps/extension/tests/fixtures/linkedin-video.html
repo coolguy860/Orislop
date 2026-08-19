@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>LinkedIn video gate fixture</title></head>
+  <body>
+    <main>
+      <article id="candidate" data-urn="urn:li:activity:987654321">
+        <a class="update-components-actor__name" href="https://www.linkedin.com/in/video-creator/">Video Creator</a>
+        <a href="https://www.linkedin.com/feed/update/urn:li:activity:987654321/">Open post</a>
+        <div class="update-components-text">A product demonstration with a checkable claim about a 30 percent speed increase.</div>
+        <video id="video" width="960" height="540" poster="https://media.licdn.com/dms/image/video-preview">
+          <source src="https://dms.licdn.com/playlist/video.mp4" type="video/mp4">
+        </video>
+      </article>
+    </main>
+    <script>globalThis.__ORISLOP_TEST__ = true;</script>
+    <script src="../../src/aiClassifierModel.generated.js"></script>
+    <script src="../../src/classifier.js"></script>
+    <script src="../../src/platformAdapters.js"></script>
+    <script src="../../src/controlCore.js"></script>
+    <script src="../../src/contentScript.js"></script>
+    <script>
+      const api = globalThis.__ORISLOP_EXTENSION_TEST_API__;
+      const element = document.getElementById("candidate");
+      const candidate = api.extractCandidate(element, "linkedin");
+      const decision = {
+        ...globalThis.OrislopClassifier.scoreCandidate(candidate),
+        detectorStatus: "deferred_until_open"
+      };
+      document.body.dataset.result = encodeURIComponent(JSON.stringify({
+        mediaType: candidate.mediaType,
+        fullVideoAnalysisRequested: candidate.fullVideoAnalysisRequested,
+        trustLabel: api.linkedInTrustLabel(candidate, decision)
+      }));
+    </script>
+  </body>
+</html>

@@ -12,6 +12,7 @@ import type {
 } from "./types.ts";
 
 const FEEDBACK_FILE = "feedback.json";
+const MAX_FEEDBACK_RECORDS = 1000;
 
 type FeedbackFile = {
   version: 1;
@@ -35,6 +36,7 @@ export class LocalFeedbackStore {
     };
 
     file.records.push(record);
+    file.records = file.records.slice(-MAX_FEEDBACK_RECORDS);
     await writeJsonFile(this.filePath, file);
     return record;
   }
@@ -58,7 +60,7 @@ export class LocalFeedbackStore {
     if (Array.isArray(read.value)) {
       const migrated: FeedbackFile = {
         version: 1,
-        records: read.value.filter(isFeedbackRecord)
+        records: read.value.filter(isFeedbackRecord).slice(-MAX_FEEDBACK_RECORDS)
       };
       await writeJsonFile(this.filePath, migrated);
       return migrated;
@@ -72,7 +74,7 @@ export class LocalFeedbackStore {
 
     return {
       version: 1,
-      records: read.value.records.filter(isFeedbackRecord)
+      records: read.value.records.filter(isFeedbackRecord).slice(-MAX_FEEDBACK_RECORDS)
     };
   }
 }
