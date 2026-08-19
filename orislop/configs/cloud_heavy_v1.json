@@ -51,8 +51,8 @@
   "calibration": {
     "spatialLogistic": {
       "intercept": 0.0,
-      "customCoefficient": 1.0,
-      "publicCoefficient": 1.0
+      "customCoefficient": 0.5,
+      "publicCoefficient": 0.5
     },
     "motionTemperature": 1.0
   },

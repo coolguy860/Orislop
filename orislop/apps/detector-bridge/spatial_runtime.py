@@ -289,8 +289,16 @@ class SpatialDetector:
                 raise RuntimeError("Auxiliary spatial classifier returned the wrong batch size")
             return [classifier_ai_probability(output) for output in raw_outputs]
 
-        ai_future = self.cpu_pool.submit(classify_auxiliary)
-        texture_future = self.cpu_pool.submit(
+        # Keep the executor lazy-safe as well as eagerly initialized in __init__.
+        # This matters for lightweight runtime probes that construct the detector
+        # around already-loaded components without downloading every backbone.
+        cpu_pool = getattr(self, "cpu_pool", None)
+        if cpu_pool is None:
+            cpu_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="orislop-spatial-cpu")
+            self.cpu_pool = cpu_pool
+
+        ai_future = cpu_pool.submit(classify_auxiliary)
+        texture_future = cpu_pool.submit(
             lambda: [self._texture_score(image) for image in converted]
         )
 

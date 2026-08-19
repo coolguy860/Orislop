@@ -89,6 +89,9 @@ class CloudHeavyRuntimeContractTests(unittest.TestCase):
             "publicCoefficient": 0.5,
         })
         self.assertAlmostEqual(combined, 0.8, places=6)
+        committed = json.loads((REPO_ROOT / "configs" / "cloud_heavy_v1.json").read_text(encoding="utf-8"))
+        self.assertEqual(committed["calibration"]["spatialLogistic"]["customCoefficient"], 0.5)
+        self.assertEqual(committed["calibration"]["spatialLogistic"]["publicCoefficient"], 0.5)
 
     def test_motion_temperature_operates_on_logit(self) -> None:
         raw_logit = math.log(0.8 / 0.2)
