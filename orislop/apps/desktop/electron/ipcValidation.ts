@@ -292,6 +292,9 @@ function readLookaheadCandidate(value: unknown): LookaheadShortCandidate {
     channelName: nullableString(value.channelName, "candidate.channelName"),
     channelUrl: nullableString(value.channelUrl, "candidate.channelUrl"),
     visiblePageText: requiredString(value.visiblePageText, "candidate.visiblePageText"),
+    platformAiLabelText: value.platformAiLabelText === undefined
+      ? null
+      : nullableString(value.platformAiLabelText, "candidate.platformAiLabelText"),
     position: position as LookaheadPosition,
     confidence
   };

@@ -1,7 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createZipFromDirectoryContents, readZipEntries } from "./lib/zip.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const webDist = path.join(repoRoot, "apps", "web", "dist");
@@ -14,39 +14,24 @@ if (!existsSync(indexPath)) {
 }
 
 mkdirSync(rootDist, { recursive: true });
-if (existsSync(zipPath)) {
-  rmSync(zipPath, { force: true });
-}
+rmSync(zipPath, { force: true });
+createZipFromDirectoryContents(webDist, zipPath);
 
-const escapedSource = webDist.replaceAll("'", "''");
-const escapedZip = zipPath.replaceAll("'", "''");
-const compressScript = [
-  "Add-Type -AssemblyName System.IO.Compression.FileSystem",
-  `$source = '${escapedSource}'`,
-  `$zip = '${escapedZip}'`,
-  "$items = Get-ChildItem -LiteralPath $source",
-  "Compress-Archive -LiteralPath $items.FullName -DestinationPath $zip -Force"
-].join("; ");
+const entries = readZipEntries(zipPath);
 
-execFileSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", compressScript], {
-  cwd: repoRoot,
-  stdio: "inherit"
-});
+const requiredEntries = [
+  "index.html",
+  "privacy.html",
+  "release-info.json",
+  "assets/App.js",
+  "assets/styles.css",
+  "downloads/orislop-browser-extension.zip"
+];
 
-const listScript = [
-  "Add-Type -AssemblyName System.IO.Compression.FileSystem",
-  `$zip = '${escapedZip}'`,
-  "$archive = [System.IO.Compression.ZipFile]::OpenRead($zip)",
-  "try { $archive.Entries | ForEach-Object { $_.FullName } } finally { $archive.Dispose() }"
-].join("; ");
-
-const entries = execFileSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", listScript], {
-  cwd: repoRoot,
-  encoding: "utf8"
-}).split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
-
-if (!entries.includes("index.html")) {
-  throw new Error("Deploy ZIP must contain index.html at the archive root.");
+for (const requiredEntry of requiredEntries) {
+  if (!entries.includes(requiredEntry)) {
+    throw new Error(`Deploy ZIP must contain ${requiredEntry} at the expected path.`);
+  }
 }
 
 const forbiddenPatterns = [

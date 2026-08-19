@@ -264,7 +264,9 @@ async function scoreLookaheadWithStores(
     });
 
     if (!cached) {
-      await cacheStore.saveScore(baseResult, settings);
+      if (hasCacheableMetadata(short)) {
+        await cacheStore.saveScore(baseResult, settings, short);
+      }
     }
     await rememberOriginality(short, settings, originalityStore);
 
@@ -328,7 +330,9 @@ async function scoreShortWithStores(
       });
     }
   }
-  await cacheStore.saveScore(result, persistedSettings);
+  if (hasCacheableMetadata(short)) {
+    await cacheStore.saveScore(result, persistedSettings, short);
+  }
   await rememberOriginality(short, persistedSettings, originalityStore);
   await recordSkipResult(result, short, skipHistoryStore);
 
@@ -336,6 +340,16 @@ async function scoreShortWithStores(
     result,
     cacheHit: false
   };
+}
+
+function hasCacheableMetadata(short: ExtractedShort): boolean {
+  return Boolean(
+    short.title?.trim()
+    || short.description?.trim()
+    || short.visiblePageText.trim()
+    || short.transcript?.trim()
+    || short.platformAiLabelText?.trim()
+  );
 }
 
 async function buildLocalOriginalitySignals(

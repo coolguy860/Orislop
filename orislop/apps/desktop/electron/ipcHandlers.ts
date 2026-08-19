@@ -19,21 +19,54 @@ export function registerOrislopIpcHandlers(
   ipcMain: IpcMainLike,
   service: DesktopMockService
 ): void {
-  ipcMain.handle("orislop:listFixtures", () => service.listFixtures());
-  ipcMain.handle("orislop:scoreShort", (_event, payload) => service.scoreShort(readScorePayload(payload)));
-  ipcMain.handle("orislop:getSettings", () => service.getSettings());
-  ipcMain.handle("orislop:updateSettings", (_event, payload) => service.updateSettings(readSettingsPatch(payload)));
-  ipcMain.handle("orislop:resetSettings", () => service.resetSettings());
-  ipcMain.handle("orislop:saveFeedback", (_event, payload) => service.saveFeedback(readFeedbackPayload(payload)));
-  ipcMain.handle("orislop:saveCalibrationLabel", (_event, payload) => service.saveCalibrationLabel(readCalibrationLabelPayload(payload)));
-  ipcMain.handle("orislop:listCalibrationLabels", () => service.listCalibrationLabels());
-  ipcMain.handle("orislop:exportCalibrationLabels", () => service.exportCalibrationLabels());
-  ipcMain.handle("orislop:importCalibrationLabels", (_event, payload) => service.importCalibrationLabels(readCalibrationImportPayload(payload)));
-  ipcMain.handle("orislop:getCachedScore", (_event, payload) => service.getCachedScore(readScorePayload(payload)));
-  ipcMain.handle("orislop:scoreLookaheadCandidates", (_event, payload) => service.scoreLookaheadCandidates(readScoreLookaheadPayload(payload)));
-  ipcMain.handle("orislop:clearCache", () => service.clearCache());
-  ipcMain.handle("orislop:forceRescan", (_event, payload) => service.forceRescan(readScorePayload(payload)));
-  ipcMain.handle("orislop:getSkipHistory", () => service.getSkipHistory());
-  ipcMain.handle("orislop:markScrolledBack", (_event, payload) => service.markScrolledBack(readScorePayload(payload)));
-  ipcMain.handle("orislop:markWatchedAnyway", (_event, payload) => service.markWatchedAnyway(readScorePayload(payload)));
+  const handle = (
+    channel: string,
+    listener: (payload?: unknown) => Promise<unknown> | unknown
+  ): void => {
+    ipcMain.handle(channel, (event, payload) => {
+      assertTrustedIpcSender(event);
+      return listener(payload);
+    });
+  };
+
+  handle("orislop:listFixtures", () => service.listFixtures());
+  handle("orislop:scoreShort", (payload) => service.scoreShort(readScorePayload(payload)));
+  handle("orislop:getSettings", () => service.getSettings());
+  handle("orislop:updateSettings", (payload) => service.updateSettings(readSettingsPatch(payload)));
+  handle("orislop:resetSettings", () => service.resetSettings());
+  handle("orislop:saveFeedback", (payload) => service.saveFeedback(readFeedbackPayload(payload)));
+  handle("orislop:saveCalibrationLabel", (payload) => service.saveCalibrationLabel(readCalibrationLabelPayload(payload)));
+  handle("orislop:listCalibrationLabels", () => service.listCalibrationLabels());
+  handle("orislop:exportCalibrationLabels", () => service.exportCalibrationLabels());
+  handle("orislop:importCalibrationLabels", (payload) => service.importCalibrationLabels(readCalibrationImportPayload(payload)));
+  handle("orislop:getCachedScore", (payload) => service.getCachedScore(readScorePayload(payload)));
+  handle("orislop:scoreLookaheadCandidates", (payload) => service.scoreLookaheadCandidates(readScoreLookaheadPayload(payload)));
+  handle("orislop:clearCache", () => service.clearCache());
+  handle("orislop:forceRescan", (payload) => service.forceRescan(readScorePayload(payload)));
+  handle("orislop:getSkipHistory", () => service.getSkipHistory());
+  handle("orislop:markScrolledBack", (payload) => service.markScrolledBack(readScorePayload(payload)));
+  handle("orislop:markWatchedAnyway", (payload) => service.markWatchedAnyway(readScorePayload(payload)));
+}
+
+export function assertTrustedIpcSender(event: unknown): void {
+  if (typeof event !== "object" || event === null) {
+    throw new Error("Rejected IPC call without a trusted sender frame.");
+  }
+
+  const senderFrame = (event as { senderFrame?: { url?: unknown } | null }).senderFrame;
+  if (!senderFrame || typeof senderFrame.url !== "string") {
+    throw new Error("Rejected IPC call without a trusted sender frame.");
+  }
+
+  try {
+    const senderUrl = new URL(senderFrame.url);
+    if (senderUrl.protocol !== "file:") {
+      throw new Error("Rejected IPC call from an untrusted renderer origin.");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Rejected IPC")) {
+      throw error;
+    }
+    throw new Error("Rejected IPC call from an invalid renderer origin.");
+  }
 }

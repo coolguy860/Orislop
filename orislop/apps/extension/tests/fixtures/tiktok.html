@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>TikTok adapter fixture</title></head>
+  <body>
+    <div id="candidate" data-e2e="recommend-list-item-container">
+      <a href="https://www.tiktok.com/@historyteacher/video/741234567891?is_from_webapp=1">Open video</a>
+      <a href="https://www.tiktok.com/@historyteacher"><span data-e2e="video-author-uniqueid">@historyteacher</span></a>
+      <div id="media"><video aria-label="History lesson" poster="https://p16.tiktokcdn.com/preview.jpg" preload="none"><source src="https://v16m-default.akamaized.net/video.mp4" type="video/mp4"></video></div>
+      <div data-e2e="browse-video-desc">A historian explains how city health policy changed during the 1918 epidemic.</div>
+      <button>Like 8.2K</button><button>Share</button>
+    </div>
+    <script>globalThis.__ORISLOP_TEST__ = true;</script>
+    <script src="../../src/aiClassifierModel.generated.js"></script>
+    <script src="../../src/classifier.js"></script>
+    <script src="../../src/platformAdapters.js"></script>
+    <script src="../../src/controlCore.js"></script>
+    <script src="../../src/contentScript.js"></script>
+    <script>
+      const api = globalThis.__ORISLOP_EXTENSION_TEST_API__;
+      const element = document.getElementById("candidate");
+      const candidate = api.extractCandidate(element, "tiktok");
+      const decision = globalThis.OrislopClassifier.scoreCandidate(candidate);
+      document.body.dataset.result = encodeURIComponent(JSON.stringify({
+        platform: candidate.platform,
+        itemId: candidate.itemId,
+        itemKind: candidate.itemKind,
+        title: candidate.title,
+        creator: candidate.channelName,
+        visibleText: candidate.visibleText,
+        mediaUrl: candidate.mediaUrl,
+        previewUrl: candidate.previewUrl,
+        mediaHost: api.findMediaHost(element, candidate)?.id || "",
+        factCheckEligible: decision.factCheckEligible
+      }));
+    </script>
+  </body>
+</html>

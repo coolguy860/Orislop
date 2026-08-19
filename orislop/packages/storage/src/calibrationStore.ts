@@ -21,6 +21,7 @@ import type {
 } from "./types.ts";
 
 const CALIBRATION_FILE = "calibration-labels.json";
+const MAX_CALIBRATION_RECORDS = 1000;
 const VALID_LABELS = new Set<CalibrationUserLabel>([
   "slop",
   "not_slop",
@@ -89,7 +90,7 @@ export class CalibrationStore {
     };
 
     records.push(record);
-    await this.persist(records);
+    await this.persist(records.slice(-MAX_CALIBRATION_RECORDS));
     return record;
   }
 
@@ -102,7 +103,7 @@ export class CalibrationStore {
     const existing = await this.list();
     const existingIds = new Set(existing.map((record) => record.id));
     const imported = incoming.filter((record) => !existingIds.has(record.id));
-    await this.persist([...existing, ...imported]);
+    await this.persist([...existing, ...imported].slice(-MAX_CALIBRATION_RECORDS));
 
     return {
       imported: imported.length,
@@ -112,7 +113,7 @@ export class CalibrationStore {
 
   async replaceAll(recordsInput: unknown): Promise<CalibrationImportResult> {
     const records = repairCalibrationRecords(recordsInput);
-    await this.persist(records);
+    await this.persist(records.slice(-MAX_CALIBRATION_RECORDS));
     return {
       imported: records.length,
       skipped: 0

@@ -14,6 +14,7 @@ export type YouTubeShortsExtractionSnapshot = {
   }>;
   descriptionCandidates?: Array<string | null | undefined>;
   visibleText?: string | null;
+  aiDisclosureCandidates?: Array<string | null | undefined>;
   transcriptCandidates?: Array<string | null | undefined>;
   audioCandidates?: Array<string | null | undefined>;
   videoDurationSec?: number | null;
@@ -78,7 +79,7 @@ export function extractShortFromSnapshot(
   const audioTrackTitle = firstText(snapshot.audioCandidates ?? []);
   const playerStateText = firstText([snapshot.playerStateText]);
   const joinedText = [title, description, visiblePageText].filter(Boolean).join(" ");
-  const disclosureText = findAiDisclosure(joinedText);
+  const disclosureText = findAiDisclosure(firstText(snapshot.aiDisclosureCandidates ?? []) ?? "");
   const adNoticeText = findAdNotice(joinedText);
   const parsed = parseYouTubeShortsUrl(snapshot.url);
   const communityReactionSummary = summarizeVisibleCommunityReactions(
@@ -128,7 +129,7 @@ export function extractHashtags(text: string): string[] {
 }
 
 export function findAiDisclosure(text: string): string | null {
-  const match = text.match(/(?:altered|synthetic|ai-generated|ai generated|made with ai|created with ai|generated with ai|contains ai)/i);
+  const match = text.match(/(?:altered or synthetic content|includes? altered or synthetic content|created or altered with ai|generated or altered with ai|how this content was made)/i);
   return match ? match[0] : null;
 }
 
@@ -250,6 +251,7 @@ function browserExtractCurrentShort(options: YouTubeShortsExtractorOptions = {})
       "ytd-channel-name a[href], #channel-name a[href], a[href^='/@'], a[href*='youtube.com/@']"
     );
     const visibleText = visibleTextWithoutComments();
+    const aiDisclosureCandidates = platformAiDisclosureTexts();
     const audioCandidates = [
       textFromSelector("a[href*='/watch?v='][aria-label*='song' i]"),
       textFromSelector("a[href*='/watch?v='][title*='song' i]"),
@@ -277,6 +279,7 @@ function browserExtractCurrentShort(options: YouTubeShortsExtractorOptions = {})
         url: channelElement?.href ?? null
       }],
       visibleText,
+      aiDisclosureCandidates,
       transcriptCandidates: [],
       audioCandidates,
       videoDurationSec: video ? finitePlainNumber(video.duration) : null,
@@ -336,6 +339,31 @@ function browserExtractCurrentShort(options: YouTubeShortsExtractorOptions = {})
     return normalizePlain(clone.innerText || clone.textContent || "").slice(0, 12000);
   }
 
+  function platformAiDisclosureTexts(): string[] {
+    const selectors = [
+      "[aria-label*='altered or synthetic content' i]",
+      "[title*='altered or synthetic content' i]",
+      "[aria-label*='how this content was made' i]",
+      "ytd-info-panel-content-renderer",
+      "yt-factoid-renderer"
+    ];
+    const values: string[] = [];
+    for (const selector of selectors) {
+      for (const node of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
+        const value = [
+          node.getAttribute("aria-label"),
+          node.getAttribute("title"),
+          node.innerText,
+          node.textContent
+        ].map((item) => normalizePlain(item ?? "")).find((item) => plainAiDisclosure(item));
+        if (value && !values.includes(value)) {
+          values.push(value);
+        }
+      }
+    }
+    return values;
+  }
+
   function visibleCommentTexts(limitInput?: number): string[] {
     const limit = plainClampCommentLimit(limitInput);
     const selectors = [
@@ -373,6 +401,7 @@ function browserExtractCurrentShort(options: YouTubeShortsExtractorOptions = {})
     channelCandidates: Array<{ name: string | null | undefined; url: string | null | undefined }>;
     descriptionCandidates: Array<string | null | undefined>;
     visibleText: string | null;
+    aiDisclosureCandidates: Array<string | null | undefined>;
     transcriptCandidates: Array<string | null | undefined>;
     audioCandidates: Array<string | null | undefined>;
     videoDurationSec: number | null;
@@ -389,7 +418,7 @@ function browserExtractCurrentShort(options: YouTubeShortsExtractorOptions = {})
     const audioTrackTitle = firstPlainText(snapshot.audioCandidates);
     const playerStateText = firstPlainText([snapshot.playerStateText]);
     const joined = [title, description, visiblePageText].filter(Boolean).join(" ");
-    const disclosure = plainAiDisclosure(joined);
+    const disclosure = plainAiDisclosure(firstPlainText(snapshot.aiDisclosureCandidates) ?? "");
     const adNoticeText = plainAdNotice(joined);
     const communityReactionSummary = plainSummarizeVisibleCommunityReactions(
       snapshot.commentCandidates,
@@ -495,7 +524,7 @@ function browserExtractCurrentShort(options: YouTubeShortsExtractorOptions = {})
   }
 
   function plainAiDisclosure(value: string): string | null {
-    const match = value.match(/(?:altered|synthetic|ai-generated|ai generated|made with ai|created with ai|generated with ai|contains ai)/i);
+    const match = value.match(/(?:altered or synthetic content|includes? altered or synthetic content|created or altered with ai|generated or altered with ai|how this content was made)/i);
     return match ? match[0] : null;
   }
 

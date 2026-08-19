@@ -1,0 +1,1217 @@
+{
+  "features": [
+    {
+      "idf": 1.624154,
+      "term": "__duration_medium__",
+      "weight": -0.96062
+    },
+    {
+      "idf": 1.513806,
+      "term": "__watch__",
+      "weight": -0.669584
+    },
+    {
+      "idf": 1.889857,
+      "term": "__short__",
+      "weight": 0.644598
+    },
+    {
+      "idf": 2.029619,
+      "term": "__duration_short__",
+      "weight": 0.914174
+    },
+    {
+      "idf": 2.460402,
+      "term": "original",
+      "weight": -2.119422
+    },
+    {
+      "idf": 2.722767,
+      "term": "no",
+      "weight": 1.760538
+    },
+    {
+      "idf": 2.673976,
+      "term": "clips",
+      "weight": 1.671899
+    },
+    {
+      "idf": 2.828127,
+      "term": "over",
+      "weight": 0.969438
+    },
+    {
+      "idf": 2.828127,
+      "term": "ai",
+      "weight": 2.441666
+    },
+    {
+      "idf": 3.010449,
+      "term": "synthetic",
+      "weight": 1.222784
+    },
+    {
+      "idf": 3.233592,
+      "term": "gameplay",
+      "weight": 1.575421
+    },
+    {
+      "idf": 3.15355,
+      "term": "voice",
+      "weight": 1.322955
+    },
+    {
+      "idf": 3.320604,
+      "term": "loop",
+      "weight": 1.907331
+    },
+    {
+      "idf": 3.415914,
+      "term": "explain",
+      "weight": -2.9343
+    },
+    {
+      "idf": 3.079442,
+      "term": "compilation",
+      "weight": 1.380038
+    },
+    {
+      "idf": 3.320604,
+      "term": "story",
+      "weight": 2.574941
+    },
+    {
+      "idf": 3.521274,
+      "term": "notes",
+      "weight": -2.793051
+    },
+    {
+      "idf": 3.521274,
+      "term": "narration",
+      "weight": 1.67726
+    },
+    {
+      "idf": 3.521274,
+      "term": "generated",
+      "weight": 4.155487
+    },
+    {
+      "idf": 3.079442,
+      "term": "__duration_long__",
+      "weight": 0.86516
+    },
+    {
+      "idf": 3.320604,
+      "term": "source",
+      "weight": 0.73288
+    },
+    {
+      "idf": 3.639057,
+      "term": "we",
+      "weight": -2.615987
+    },
+    {
+      "idf": 3.639057,
+      "term": "viral",
+      "weight": 2.762594
+    },
+    {
+      "idf": 3.639057,
+      "term": "secret",
+      "weight": 2.519123
+    },
+    {
+      "idf": 3.639057,
+      "term": "science",
+      "weight": -3.056115
+    },
+    {
+      "idf": 3.639057,
+      "term": "reads",
+      "weight": 2.205221
+    },
+    {
+      "idf": 3.639057,
+      "term": "no_commentary",
+      "weight": 2.895987
+    },
+    {
+      "idf": 3.639057,
+      "term": "explains",
+      "weight": -3.306123
+    },
+    {
+      "idf": 3.639057,
+      "term": "creator",
+      "weight": -4.442807
+    },
+    {
+      "idf": 3.639057,
+      "term": "bot",
+      "weight": 1.941544
+    },
+    {
+      "idf": 3.639057,
+      "term": "automated",
+      "weight": 2.078337
+    },
+    {
+      "idf": 3.521274,
+      "term": "context",
+      "weight": -1.187514
+    },
+    {
+      "idf": 3.772589,
+      "term": "unknown",
+      "weight": 2.488802
+    },
+    {
+      "idf": 3.772589,
+      "term": "truth",
+      "weight": 3.038814
+    },
+    {
+      "idf": 3.772589,
+      "term": "performance",
+      "weight": -2.849363
+    },
+    {
+      "idf": 3.772589,
+      "term": "part",
+      "weight": 1.799267
+    },
+    {
+      "idf": 3.772589,
+      "term": "lesson",
+      "weight": -2.532904
+    },
+    {
+      "idf": 3.772589,
+      "term": "lab",
+      "weight": -2.444834
+    },
+    {
+      "idf": 3.772589,
+      "term": "examples",
+      "weight": -2.980742
+    },
+    {
+      "idf": 3.772589,
+      "term": "educational",
+      "weight": -2.569743
+    },
+    {
+      "idf": 3.772589,
+      "term": "before",
+      "weight": 1.717437
+    },
+    {
+      "idf": 3.772589,
+      "term": "ai_generated",
+      "weight": 1.983484
+    },
+    {
+      "idf": 3.639057,
+      "term": "speech",
+      "weight": 0.540574
+    },
+    {
+      "idf": 3.639057,
+      "term": "reddit",
+      "weight": 1.605326
+    },
+    {
+      "idf": 3.926739,
+      "term": "voice_reads",
+      "weight": 1.852317
+    },
+    {
+      "idf": 3.926739,
+      "term": "tutorial",
+      "weight": -2.791984
+    },
+    {
+      "idf": 3.926739,
+      "term": "they",
+      "weight": 1.676805
+    },
+    {
+      "idf": 3.926739,
+      "term": "text_speech",
+      "weight": 1.757157
+    },
+    {
+      "idf": 3.926739,
+      "term": "studio",
+      "weight": -2.582718
+    },
+    {
+      "idf": 3.926739,
+      "term": "stories",
+      "weight": 2.330932
+    },
+    {
+      "idf": 3.926739,
+      "term": "mobile",
+      "weight": 1.767999
+    },
+    {
+      "idf": 3.926739,
+      "term": "income",
+      "weight": 1.918844
+    },
+    {
+      "idf": 3.926739,
+      "term": "hate",
+      "weight": 1.397459
+    },
+    {
+      "idf": 3.926739,
+      "term": "follow",
+      "weight": 1.657158
+    },
+    {
+      "idf": 3.926739,
+      "term": "doctors",
+      "weight": 2.345404
+    },
+    {
+      "idf": 3.926739,
+      "term": "desk",
+      "weight": -2.754974
+    },
+    {
+      "idf": 2.94591,
+      "term": "commentary",
+      "weight": -0.386152
+    },
+    {
+      "idf": 3.15355,
+      "term": "footage",
+      "weight": -0.147409
+    },
+    {
+      "idf": 3.415914,
+      "term": "sleep",
+      "weight": 1.12472
+    },
+    {
+      "idf": 3.772589,
+      "term": "while",
+      "weight": 0.839897
+    },
+    {
+      "idf": 3.772589,
+      "term": "video",
+      "weight": 1.415114
+    },
+    {
+      "idf": 3.772589,
+      "term": "text",
+      "weight": 1.207962
+    },
+    {
+      "idf": 3.772589,
+      "term": "parkour",
+      "weight": 1.619954
+    },
+    {
+      "idf": 3.772589,
+      "term": "miracle",
+      "weight": 0.812758
+    },
+    {
+      "idf": 3.772589,
+      "term": "daily",
+      "weight": -1.112213
+    },
+    {
+      "idf": 3.639057,
+      "term": "screen",
+      "weight": 0.713305
+    },
+    {
+      "idf": 3.639057,
+      "term": "satisfying",
+      "weight": 2.2409
+    },
+    {
+      "idf": 3.639057,
+      "term": "moments",
+      "weight": 0.692254
+    },
+    {
+      "idf": 3.639057,
+      "term": "guaranteed",
+      "weight": 1.073456
+    },
+    {
+      "idf": 3.639057,
+      "term": "clip",
+      "weight": -0.610873
+    },
+    {
+      "idf": 4.109061,
+      "term": "work",
+      "weight": -2.51515
+    },
+    {
+      "idf": 4.109061,
+      "term": "unsupported",
+      "weight": 2.079749
+    },
+    {
+      "idf": 4.109061,
+      "term": "unrelated",
+      "weight": 2.862423
+    },
+    {
+      "idf": 4.109061,
+      "term": "trick",
+      "weight": 2.12964
+    },
+    {
+      "idf": 4.109061,
+      "term": "that",
+      "weight": 2.376577
+    },
+    {
+      "idf": 4.109061,
+      "term": "test",
+      "weight": -3.727648
+    },
+    {
+      "idf": 4.109061,
+      "term": "synthetic_narration",
+      "weight": 1.562978
+    },
+    {
+      "idf": 4.109061,
+      "term": "surfers",
+      "weight": 2.362583
+    },
+    {
+      "idf": 4.109061,
+      "term": "subway_surfers",
+      "weight": 2.362583
+    },
+    {
+      "idf": 4.109061,
+      "term": "subway",
+      "weight": 2.362583
+    },
+    {
+      "idf": 4.109061,
+      "term": "sources",
+      "weight": 2.631879
+    },
+    {
+      "idf": 4.109061,
+      "term": "source_unknown",
+      "weight": 1.638129
+    },
+    {
+      "idf": 4.109061,
+      "term": "shortcut",
+      "weight": 2.548832
+    },
+    {
+      "idf": 4.109061,
+      "term": "scene",
+      "weight": 1.818791
+    },
+    {
+      "idf": 4.109061,
+      "term": "recorded",
+      "weight": -2.811124
+    },
+    {
+      "idf": 4.109061,
+      "term": "production",
+      "weight": -1.646861
+    },
+    {
+      "idf": 4.109061,
+      "term": "own",
+      "weight": -2.383882
+    },
+    {
+      "idf": 4.109061,
+      "term": "over_mobile",
+      "weight": 1.355716
+    },
+    {
+      "idf": 4.109061,
+      "term": "our",
+      "weight": -2.284681
+    },
+    {
+      "idf": 4.109061,
+      "term": "no_source",
+      "weight": 1.872444
+    },
+    {
+      "idf": 4.109061,
+      "term": "narrator",
+      "weight": 1.778048
+    },
+    {
+      "idf": 4.109061,
+      "term": "music",
+      "weight": -3.663528
+    },
+    {
+      "idf": 4.109061,
+      "term": "full",
+      "weight": -2.519534
+    },
+    {
+      "idf": 4.109061,
+      "term": "field",
+      "weight": -2.86644
+    },
+    {
+      "idf": 4.109061,
+      "term": "each",
+      "weight": -1.962059
+    },
+    {
+      "idf": 4.109061,
+      "term": "doctors_hate",
+      "weight": 1.418107
+    },
+    {
+      "idf": 4.109061,
+      "term": "cure",
+      "weight": 2.081037
+    },
+    {
+      "idf": 4.109061,
+      "term": "copied",
+      "weight": 1.433785
+    },
+    {
+      "idf": 4.109061,
+      "term": "claim",
+      "weight": 2.562715
+    },
+    {
+      "idf": 4.109061,
+      "term": "basics",
+      "weight": -3.743451
+    },
+    {
+      "idf": 4.109061,
+      "term": "background",
+      "weight": 3.17731
+    },
+    {
+      "idf": 3.521274,
+      "term": "every",
+      "weight": 0.3134
+    },
+    {
+      "idf": 3.926739,
+      "term": "repeats",
+      "weight": 0.998966
+    },
+    {
+      "idf": 3.926739,
+      "term": "rain",
+      "weight": -1.15441
+    },
+    {
+      "idf": 3.926739,
+      "term": "not",
+      "weight": 1.135228
+    },
+    {
+      "idf": 3.926739,
+      "term": "ai_voice",
+      "weight": -0.128947
+    },
+    {
+      "idf": 3.772589,
+      "term": "without",
+      "weight": 0.483658
+    },
+    {
+      "idf": 3.772589,
+      "term": "local",
+      "weight": -2.577592
+    },
+    {
+      "idf": 3.772589,
+      "term": "claims",
+      "weight": 0.758255
+    },
+    {
+      "idf": 4.332205,
+      "term": "will",
+      "weight": 2.574717
+    },
+    {
+      "idf": 4.332205,
+      "term": "why",
+      "weight": -2.626405
+    },
+    {
+      "idf": 4.332205,
+      "term": "what",
+      "weight": -2.287869
+    },
+    {
+      "idf": 4.332205,
+      "term": "watch",
+      "weight": 1.580524
+    },
+    {
+      "idf": 4.332205,
+      "term": "viral_clips",
+      "weight": 0.932562
+    },
+    {
+      "idf": 4.332205,
+      "term": "vault",
+      "weight": 2.431993
+    },
+    {
+      "idf": 4.332205,
+      "term": "using",
+      "weight": -1.952162
+    },
+    {
+      "idf": 4.332205,
+      "term": "useful",
+      "weight": -3.374597
+    },
+    {
+      "idf": 4.332205,
+      "term": "tutorial_original",
+      "weight": -1.87032
+    },
+    {
+      "idf": 4.332205,
+      "term": "tour",
+      "weight": -2.745723
+    },
+    {
+      "idf": 4.332205,
+      "term": "through",
+      "weight": -1.804768
+    },
+    {
+      "idf": 4.332205,
+      "term": "they_delete",
+      "weight": 1.351478
+    },
+    {
+      "idf": 4.332205,
+      "term": "synthetic_voice",
+      "weight": 1.521755
+    },
+    {
+      "idf": 4.332205,
+      "term": "story_over",
+      "weight": 1.185226
+    },
+    {
+      "idf": 4.332205,
+      "term": "stolen",
+      "weight": 2.346698
+    },
+    {
+      "idf": 4.332205,
+      "term": "stage",
+      "weight": -1.676524
+    },
+    {
+      "idf": 4.332205,
+      "term": "split",
+      "weight": 2.043742
+    },
+    {
+      "idf": 4.332205,
+      "term": "song",
+      "weight": -1.949182
+    },
+    {
+      "idf": 4.332205,
+      "term": "shorts",
+      "weight": 3.235037
+    },
+    {
+      "idf": 4.332205,
+      "term": "shocking",
+      "weight": 1.76753
+    },
+    {
+      "idf": 4.332205,
+      "term": "shadows",
+      "weight": -2.128395
+    },
+    {
+      "idf": 4.332205,
+      "term": "satisfying_clips",
+      "weight": 1.588824
+    },
+    {
+      "idf": 4.332205,
+      "term": "sample",
+      "weight": -1.065432
+    },
+    {
+      "idf": 4.332205,
+      "term": "room",
+      "weight": -2.138529
+    },
+    {
+      "idf": 4.332205,
+      "term": "robot_voice",
+      "weight": 1.224342
+    },
+    {
+      "idf": 4.332205,
+      "term": "robot",
+      "weight": 1.224342
+    },
+    {
+      "idf": 4.332205,
+      "term": "review",
+      "weight": -3.567472
+    },
+    {
+      "idf": 4.332205,
+      "term": "reuploaded",
+      "weight": 1.424535
+    },
+    {
+      "idf": 4.332205,
+      "term": "repost",
+      "weight": 2.975754
+    },
+    {
+      "idf": 4.332205,
+      "term": "relationship",
+      "weight": 1.373612
+    },
+    {
+      "idf": 4.332205,
+      "term": "recycled",
+      "weight": 1.963849
+    },
+    {
+      "idf": 4.332205,
+      "term": "reaction",
+      "weight": 3.312278
+    },
+    {
+      "idf": 4.332205,
+      "term": "rainfall",
+      "weight": -2.348182
+    },
+    {
+      "idf": 4.332205,
+      "term": "process",
+      "weight": -2.561909
+    },
+    {
+      "idf": 4.332205,
+      "term": "practical",
+      "weight": -2.743761
+    },
+    {
+      "idf": 4.332205,
+      "term": "passive_income",
+      "weight": 1.235264
+    },
+    {
+      "idf": 4.332205,
+      "term": "passive",
+      "weight": 1.235264
+    },
+    {
+      "idf": 4.332205,
+      "term": "pacing",
+      "weight": -3.392539
+    },
+    {
+      "idf": 4.332205,
+      "term": "oddly_satisfying",
+      "weight": 2.501589
+    },
+    {
+      "idf": 4.332205,
+      "term": "oddly",
+      "weight": 2.501589
+    },
+    {
+      "idf": 4.332205,
+      "term": "now",
+      "weight": 1.483249
+    },
+    {
+      "idf": 4.332205,
+      "term": "more",
+      "weight": 2.86152
+    },
+    {
+      "idf": 4.332205,
+      "term": "mobile_gameplay",
+      "weight": 1.303248
+    },
+    {
+      "idf": 4.332205,
+      "term": "looping",
+      "weight": 1.917291
+    },
+    {
+      "idf": 4.332205,
+      "term": "live",
+      "weight": -1.097712
+    },
+    {
+      "idf": 4.332205,
+      "term": "link",
+      "weight": 2.212115
+    },
+    {
+      "idf": 4.332205,
+      "term": "lighting",
+      "weight": -2.438943
+    },
+    {
+      "idf": 4.332205,
+      "term": "health",
+      "weight": 1.518463
+    },
+    {
+      "idf": 4.332205,
+      "term": "fast",
+      "weight": 2.350783
+    },
+    {
+      "idf": 4.332205,
+      "term": "explained",
+      "weight": -3.192136
+    },
+    {
+      "idf": 4.332205,
+      "term": "excerpts",
+      "weight": -3.453726
+    },
+    {
+      "idf": 4.332205,
+      "term": "everything",
+      "weight": 1.972852
+    },
+    {
+      "idf": 4.332205,
+      "term": "do_not",
+      "weight": 1.716225
+    },
+    {
+      "idf": 4.332205,
+      "term": "delete",
+      "weight": 1.351478
+    },
+    {
+      "idf": 4.332205,
+      "term": "compilation_no",
+      "weight": 3.46698
+    },
+    {
+      "idf": 4.332205,
+      "term": "clips_compilation",
+      "weight": 1.502284
+    },
+    {
+      "idf": 4.332205,
+      "term": "change",
+      "weight": -4.411365
+    },
+    {
+      "idf": 4.332205,
+      "term": "celebrity",
+      "weight": 2.638957
+    },
+    {
+      "idf": 4.332205,
+      "term": "build",
+      "weight": -2.533808
+    },
+    {
+      "idf": 4.332205,
+      "term": "block",
+      "weight": -2.259686
+    },
+    {
+      "idf": 4.332205,
+      "term": "before_they",
+      "weight": 1.351478
+    },
+    {
+      "idf": 4.332205,
+      "term": "around",
+      "weight": 0.832541
+    },
+    {
+      "idf": 4.332205,
+      "term": "anonymous",
+      "weight": 1.700465
+    },
+    {
+      "idf": 4.332205,
+      "term": "analysis",
+      "weight": -1.284964
+    },
+    {
+      "idf": 3.639057,
+      "term": "money",
+      "weight": 0.17803
+    },
+    {
+      "idf": 4.109061,
+      "term": "ten",
+      "weight": 1.10313
+    },
+    {
+      "idf": 4.109061,
+      "term": "school",
+      "weight": -1.376299
+    },
+    {
+      "idf": 4.109061,
+      "term": "says",
+      "weight": 0.668398
+    },
+    {
+      "idf": 4.109061,
+      "term": "recording",
+      "weight": -1.712867
+    },
+    {
+      "idf": 4.109061,
+      "term": "plays",
+      "weight": 0.990397
+    },
+    {
+      "idf": 4.109061,
+      "term": "natural",
+      "weight": 0.899218
+    },
+    {
+      "idf": 4.109061,
+      "term": "game",
+      "weight": -0.620306
+    },
+    {
+      "idf": 4.109061,
+      "term": "finance",
+      "weight": -2.759393
+    },
+    {
+      "idf": 4.109061,
+      "term": "explanation",
+      "weight": -1.906618
+    },
+    {
+      "idf": 4.109061,
+      "term": "do",
+      "weight": 1.056985
+    },
+    {
+      "idf": 4.109061,
+      "term": "audio",
+      "weight": 0.765912
+    },
+    {
+      "idf": 3.926739,
+      "term": "sound",
+      "weight": -1.227302
+    },
+    {
+      "idf": 3.926739,
+      "term": "minecraft",
+      "weight": 0.705389
+    },
+    {
+      "idf": 3.926739,
+      "term": "hours",
+      "weight": -0.088908
+    },
+    {
+      "idf": 3.926739,
+      "term": "green",
+      "weight": -0.989949
+    },
+    {
+      "idf": 3.926739,
+      "term": "best_moments",
+      "weight": 0.546938
+    },
+    {
+      "idf": 3.926739,
+      "term": "best",
+      "weight": 0.546938
+    },
+    {
+      "idf": 3.926739,
+      "term": "animation",
+      "weight": -1.203608
+    },
+    {
+      "idf": 4.619887,
+      "term": "while_gameplay",
+      "weight": 1.041887
+    },
+    {
+      "idf": 4.619887,
+      "term": "weather",
+      "weight": 2.913372
+    },
+    {
+      "idf": 4.619887,
+      "term": "wealth_shortcut",
+      "weight": 2.054118
+    },
+    {
+      "idf": 4.619887,
+      "term": "wealth",
+      "weight": 2.054118
+    },
+    {
+      "idf": 4.619887,
+      "term": "was_generated",
+      "weight": 1.814145
+    },
+    {
+      "idf": 4.619887,
+      "term": "want",
+      "weight": 1.13857
+    },
+    {
+      "idf": 4.619887,
+      "term": "walkthrough",
+      "weight": -2.249842
+    },
+    {
+      "idf": 4.619887,
+      "term": "walk",
+      "weight": -2.700216
+    },
+    {
+      "idf": 4.619887,
+      "term": "voice_clone",
+      "weight": 1.506926
+    },
+    {
+      "idf": 4.619887,
+      "term": "vlog",
+      "weight": -2.183994
+    },
+    {
+      "idf": 4.619887,
+      "term": "viral_video",
+      "weight": 2.188316
+    },
+    {
+      "idf": 4.619887,
+      "term": "viral_moments",
+      "weight": 0.885279
+    },
+    {
+      "idf": 4.619887,
+      "term": "using_same",
+      "weight": -2.00894
+    },
+    {
+      "idf": 4.619887,
+      "term": "user_asks",
+      "weight": 1.536912
+    },
+    {
+      "idf": 4.619887,
+      "term": "user",
+      "weight": 1.536912
+    },
+    {
+      "idf": 4.619887,
+      "term": "truth_flash",
+      "weight": 2.432512
+    },
+    {
+      "idf": 4.619887,
+      "term": "truth_about",
+      "weight": 2.015733
+    },
+    {
+      "idf": 4.619887,
+      "term": "timing",
+      "weight": -2.162596
+    },
+    {
+      "idf": 4.619887,
+      "term": "their",
+      "weight": -1.770387
+    },
+    {
+      "idf": 4.619887,
+      "term": "text-to-speech",
+      "weight": 1.254881
+    },
+    {
+      "idf": 4.619887,
+      "term": "tested",
+      "weight": -2.00894
+    },
+    {
+      "idf": 4.619887,
+      "term": "telescope",
+      "weight": -2.052338
+    },
+    {
+      "idf": 4.619887,
+      "term": "supplement",
+      "weight": 0.98055
+    },
+    {
+      "idf": 4.619887,
+      "term": "summary",
+      "weight": -0.891112
+    },
+    {
+      "idf": 4.619887,
+      "term": "subscribe",
+      "weight": 2.458594
+    },
+    {
+      "idf": 4.619887,
+      "term": "study",
+      "weight": -1.99518
+    },
+    {
+      "idf": 4.619887,
+      "term": "studies",
+      "weight": -1.002813
+    },
+    {
+      "idf": 4.619887,
+      "term": "story_sleep",
+      "weight": 1.536912
+    }
+  ],
+  "intercept": -0.486868,
+  "labelRules": [
+    {
+      "label": "reddit_story",
+      "terms": [
+        "reddit",
+        "aita",
+        "story",
+        "stories",
+        "minecraft",
+        "parkour",
+        "text_to"
+      ]
+    },
+    {
+      "label": "ai_voice",
+      "terms": [
+        "ai",
+        "voice",
+        "synthetic",
+        "tts",
+        "deepfake",
+        "generated"
+      ]
+    },
+    {
+      "label": "repost_compilation",
+      "terms": [
+        "repost",
+        "compilation",
+        "clips",
+        "source",
+        "unknown",
+        "credit"
+      ]
+    },
+    {
+      "label": "scam_bait",
+      "terms": [
+        "guaranteed",
+        "banks",
+        "hate",
+        "cure",
+        "miracle",
+        "secret"
+      ]
+    },
+    {
+      "label": "brainrot_format",
+      "terms": [
+        "brainrot",
+        "subway",
+        "surfers",
+        "split",
+        "screen",
+        "viral"
+      ]
+    },
+    {
+      "label": "normal_educational",
+      "terms": [
+        "explains",
+        "tutorial",
+        "science",
+        "history",
+        "lesson",
+        "education"
+      ]
+    },
+    {
+      "label": "normal_creator",
+      "terms": [
+        "original",
+        "creator",
+        "walkthrough",
+        "recipe",
+        "repair",
+        "commentary"
+      ]
+    }
+  ],
+  "modelId": "orislop-ai-classifier-v1",
+  "modelType": "tfidf_logistic_regression",
+  "negativeClass": "not_slop",
+  "negativeExamples": 57,
+  "notes": [
+    "Small seed model. Do not treat probabilities as ground truth.",
+    "False positives are expensive for trust; review evaluation false positives before release.",
+    "Heuristic scores and matched rule names remain in the dataset for audit, but are excluded from training so the AI score is independent evidence.",
+    "Browser-safe inference uses exported TF-IDF weights and a sigmoid."
+  ],
+  "positiveClass": "slop",
+  "positiveExamples": 54,
+  "schemaVersion": 1,
+  "slopThreshold": 0.58,
+  "tokenizer": {
+    "lowercase": true,
+    "metadataFeatures": [
+      "__short__",
+      "__watch__",
+      "__duration_short__",
+      "__duration_medium__",
+      "__duration_long__"
+    ],
+    "ngrams": [
+      1,
+      2
+    ],
+    "pattern": "[a-z0-9][a-z0-9_'-]*"
+  },
+  "trainedAt": "2026-07-11T16:47:13.929840+00:00",
+  "trainingData": "data/slop_training_seed.csv",
+  "trainingExamples": 111
+}

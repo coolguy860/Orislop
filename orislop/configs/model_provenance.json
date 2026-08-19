@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "id": "google/vit-base-patch16-224",
+      "revision": "3f49326eb077187dfe1c2a2bb15fbd74e6ab91e3",
+      "role": "frozen spatial encoder",
+      "license": "Apache-2.0",
+      "commercialUseApproved": true,
+      "attributionRequired": true
+    },
+    {
+      "id": "umm-maybe/AI-image-detector",
+      "revision": "c7e223baf11bc40528af364ba7bdea030ef42f9e",
+      "role": "frozen auxiliary image classifier",
+      "license": "CC-BY-4.0",
+      "commercialUseApproved": true,
+      "attributionRequired": true
+    },
+    {
+      "id": "openai/clip-vit-base-patch32",
+      "revision": "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
+      "role": "frozen spatial semantic encoder",
+      "license": "MIT",
+      "commercialUseApproved": true,
+      "attributionRequired": true
+    },
+    {
+      "id": "prithivMLmods/Deepfake-Detection-Exp-02-21",
+      "revision": "adf169cf452ea42f80d8cdca1302c8c9d09d1725",
+      "role": "supporting five-frame spatial-family detector",
+      "license": "Apache-2.0",
+      "commercialUseApproved": true,
+      "attributionRequired": true,
+      "modelSha256": "48fb731fa9ec61fd37bd99cbdaf35dbca6b8102534d2ca3f3d98afab1aa6f353"
+    },
+    {
+      "id": "MusapYildiz/aegis-video-detector",
+      "revision": "95b71346cec650165e6ad3fb20ed9e80f4b6702a",
+      "sourceRevision": "d86a774a6a06abe8c0356d0f821e8d85c69f3397",
+      "role": "independent 16-frame motion-only detector",
+      "license": "MIT",
+      "commercialUseApproved": true,
+      "attributionRequired": true,
+      "checkpointSha256": "7df233979f9d3ef340e101d0d635a4d074577d43e6d1591d677cde31f80e44ba"
+    },
+    {
+      "id": "gonnerthetooner/orislop-spatial-dataset",
+      "revision": null,
+      "role": "spatial fusion-head training and evaluation data",
+      "license": null,
+      "commercialUseApproved": false,
+      "attributionRequired": true,
+      "provenanceStatus": "unresolved",
+      "blocker": "Document every image source, redistribution right, subject consent where applicable, and a commercial-use-compatible dataset license."
+    },
+    {
+      "id": "gonnerthetooner/orislop-youtube-prepared-v2",
+      "revision": null,
+      "role": "promoted temporal MoE training, validation, and internal test data",
+      "license": null,
+      "commercialUseApproved": false,
+      "attributionRequired": true,
+      "provenanceStatus": "partially-documented",
+      "labelStatus": "scraper-derived proxy labels; not independently verified ground truth",
+      "blocker": "Pin the dataset revision, complete rights and label provenance, and validate on a source-disjoint independently labeled corpus before enabling automatic public filtering."
+    },
+    {
+      "id": "orislop-promoted-temporal-2026-08",
+      "revision": null,
+      "role": "promoted micro, mid, long, extra-long, calibrated fusion video detector",
+      "license": "Orislop private artifact; final model-repository license pending",
+      "commercialUseApproved": false,
+      "attributionRequired": true,
+      "provenanceStatus": "trained-and-promoted-awaiting-publication",
+      "validationAuc": 0.9771801727684081,
+      "testAuc": 0.9757298422242957,
+      "testAccuracy": 0.923209961950882,
+      "testF1": 0.9264900662251656,
+      "rollout": "shadow"
+    }
+  ],
+  "releaseGates": {
+    "automaticVisualFilteringEligible": false,
+    "unlistedAggressiveBetaEligible": false,
+    "requiredShadowDecisions": 10000,
+    "maximumGenuineHideRate": 0.001,
+    "minimumEndToEndRecall": 0.9,
+    "blockers": [
+      "Spatial training dataset provenance and commercial-use approval are unresolved.",
+      "Temporal YouTube rights, proxy-label quality, independent labels, and source-disjoint external validation are unresolved.",
+      "The promoted temporal package still needs a private model repo, immutable revision, and recorded weights SHA-256.",
+      "The end-to-end visual consensus has not completed 10,000 shadow decisions.",
+      "cloud-heavy-v1 has not been fit and gated on separate approved calibration and validation splits."
+    ]
+  }
+}

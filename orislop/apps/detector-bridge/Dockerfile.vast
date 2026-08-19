@@ -1,0 +1,93 @@
+FROM ollama/ollama:0.32.5 AS ollama
+
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+
+ARG CLOUDFLARED_VERSION=2026.7.0
+ARG CLOUDFLARED_SHA256=434a04eb237e07d3d4146fc44acdbb411260a94fcb01764f454abe38a09503f3
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH=/opt/orislop-venv/bin:$PATH \
+    ORISLOP_APP_ROOT=/app \
+    ORISLOP_MODEL_ROOT=/models \
+    ORISLOP_STATUS_ROOT=/run/orislop-vast \
+    ORISLOP_DETECTOR_HOST=0.0.0.0 \
+    ORISLOP_DETECTOR_PORT=4317 \
+    ORISLOP_REQUIRE_API_AUTH=1 \
+    ORISLOP_ALLOW_ORIGINLESS_POSTS=0 \
+    ORISLOP_CLOUD_HEAVY_ENABLED=1 \
+    ORISLOP_CLOUD_HEAVY_DEVICE=cuda \
+    ORISLOP_REQUIRE_FULL_MODEL_STACK=1 \
+    ORISLOP_TEMPORAL_ENABLED=1 \
+    ORISLOP_TEMPORAL_LEGACY_FALLBACK=0 \
+    ORISLOP_TEMPORAL_ROLLOUT=corroborated \
+    ORISLOP_AV_JOINT_ENABLED=1 \
+    ORISLOP_AV_JOINT_MODEL_PATH=/models/av/orislop_av_joint_v1.ts \
+    ORISLOP_AV_JOINT_METADATA_PATH=/models/av/orislop_av_joint_v1.json \
+    ORISLOP_YUNET_MODEL_PATH=/models/av/face_detection_yunet_2023mar.onnx \
+    ORISLOP_TEMPORAL_AV_FUSION_PATH=/models/temporal/stage2_temporal_av_fusion.pt \
+    ORISLOP_TEMPORAL_AV_CALIBRATION_PATH=/models/temporal/stage3_temporal_av_calibration.pt \
+    ORISLOP_SPATIAL_DEVICE=cuda \
+    ORISLOP_SPATIAL_AUX_DEVICE=cpu \
+    ORISLOP_TRANSCRIPTION_DEVICE=cpu \
+    ORISLOP_TRANSCRIPTION_COMPUTE_TYPE=int8 \
+    ORISLOP_OLLAMA_DEVICE=auto \
+    ORISLOP_OLLAMA_URL=http://127.0.0.1:11434 \
+    ORISLOP_TRUSTED_OLLAMA_HOST=127.0.0.1 \
+    ORISLOP_LIGHTWEIGHT_WORKERS=auto \
+    ORISLOP_EXECUTION_MODE=auto \
+    ORISLOP_AUTOTUNE_MODE=first-run \
+    ORISLOP_AUTOTUNE_REPEATS=2 \
+    ORISLOP_AUTOTUNE_MAX_SECONDS=240 \
+    ORISLOP_AUTOTUNE_WARMUP=1 \
+    ORISLOP_AUTOTUNE_OUTPUT_TOLERANCE=0.002 \
+    ORISLOP_AUTOTUNE_RESET=0 \
+    ORISLOP_GPU_RESERVE_GIB=3.5 \
+    ORISLOP_GPU_RESERVE_FRACTION=0.12 \
+    ORISLOP_OOM_COOLDOWN_SECONDS=300 \
+    ORISLOP_PRELOAD_HEAVY_MODE=1 \
+    ORISLOP_TEMP_MEDIA_ROOT=/run/orislop-media \
+    ORISLOP_DETECTOR_CACHE=/models/orislop-cache \
+    OLLAMA_MODELS=/models/ollama \
+    HF_HOME=/models/huggingface \
+    HF_HUB_CACHE=/models/huggingface/hub \
+    HF_XET_HIGH_PERFORMANCE=1 \
+    TORCH_HOME=/models/torch \
+    CUDA_MODULE_LOADING=LAZY \
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,max_split_size_mb:256 \
+    TOKENIZERS_PARALLELISM=true \
+    OMP_NUM_THREADS=4 \
+    MKL_NUM_THREADS=4
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      ca-certificates curl ffmpeg libopenblas0 libvulkan1 python3 python3-pip python3-venv tesseract-ocr tini \
+    && curl --fail --location --silent --show-error \
+      "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" \
+      --output /tmp/cloudflared \
+    && echo "${CLOUDFLARED_SHA256}  /tmp/cloudflared" | sha256sum --check --strict \
+    && install -m 0755 /tmp/cloudflared /usr/local/bin/cloudflared \
+    && rm -f /tmp/cloudflared \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ollama /bin/ollama /usr/local/bin/ollama
+COPY --from=ollama /usr/lib/ollama /usr/lib/ollama
+
+WORKDIR /app
+COPY apps/detector-bridge/requirements.txt /tmp/orislop-requirements.txt
+RUN python3 -m venv /opt/orislop-venv \
+    && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /tmp/orislop-requirements.txt
+
+COPY . /app
+RUN mkdir -p /models /run/orislop-vast /run/orislop-media \
+    && chmod 0700 /run/orislop-vast /run/orislop-media \
+    && chmod 0755 /app/apps/detector-bridge/vast_supervisor.py
+
+VOLUME ["/models"]
+EXPOSE 4317
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30m --retries=3 \
+  CMD curl --fail --silent http://127.0.0.1:4317/ready >/dev/null || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/opt/orislop-venv/bin/python", "/app/apps/detector-bridge/vast_supervisor.py"]

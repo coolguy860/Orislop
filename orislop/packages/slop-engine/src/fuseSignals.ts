@@ -86,10 +86,9 @@ export function fuseSignals(signals: SignalResult[], settings: OrislopSettings):
     "local_duplicate_repost"
   ]);
 
-  const enabledSignals = usableSignals
-    .filter((signal) => signal.categories.some((category) => isCategoryEnabled(category, settings)));
-  const enabledScores = enabledSignals
-    .map((signal) => applyProfileMultiplier(clamp01(signal.score ?? 0), signal.categories, settings));
+  const enabledScores = usableSignals
+    .map((signal) => scoreEnabledCategories(signal, settings))
+    .filter((score): score is number => score !== null);
 
   const mediumHighEnabledEvidenceCount = evidence
     .filter((item) => item.category && isCategoryEnabled(item.category, settings))
@@ -116,6 +115,27 @@ export function fuseSignals(signals: SignalResult[], settings: OrislopSettings):
     categories,
     settingsApplied
   };
+}
+
+function scoreEnabledCategories(signal: SignalResult, settings: OrislopSettings): number | null {
+  const enabledCategories = signal.categories.filter((category) => isCategoryEnabled(category, settings));
+  if (enabledCategories.length === 0) {
+    return null;
+  }
+
+  const categorizedEvidence = signal.evidence.filter((item) => Boolean(item.category));
+  const enabledEvidence = categorizedEvidence
+    .filter((item) => item.category && enabledCategories.includes(item.category))
+    .map((item) => clamp01(item.weight));
+
+  // Multi-category rule signals carry per-category evidence. Use only evidence
+  // belonging to enabled categories so a disabled high-risk category cannot
+  // leak its score through a weaker enabled category on the same signal.
+  const enabledScore = categorizedEvidence.length > 0
+    ? Math.max(0, ...enabledEvidence)
+    : clamp01(signal.score ?? 0);
+
+  return applyProfileMultiplier(enabledScore, enabledCategories, settings);
 }
 
 export function collectEvidence(signals: SignalResult[]): EvidenceItem[] {

@@ -1,0 +1,55 @@
+{
+  "run_root": "/content/drive/MyDrive/orislop-temporal-v5",
+  "expert_cache_root": "/content/drive/MyDrive/orislop-temporal-v5/expert-cache",
+  "data": {
+    "local_root": "/content/orislop-temporal-data",
+    "dataset_repo": "gonnerthetooner/deepfake-frame-views-balanced-fusion-v1",
+    "revision": "main",
+    "smoke_shards": 0
+  },
+  "model_repo": "gonnerthetooner/deepfake-temporal-moe",
+  "output_subdir": "t4_temporal_fusion_v5",
+  "hf_private": false,
+  "upload_bundle": true,
+  "experts": {
+    "micro": "hf:gonnerthetooner/deepfake-temporal-moe/a100_high_vram_60gb_v1/stage1_micro_best.pt",
+    "mid": "hf:gonnerthetooner/deepfake-temporal-moe/a100_high_vram_60gb_v1/stage1_mid_best.pt",
+    "long": "hf:gonnerthetooner/deepfake-temporal-moe/a100_high_vram_60gb_v1/stage1_long_best.pt",
+    "extra_long": "hf:gonnerthetooner/deepfake-temporal-moe/a100_high_vram_60gb_v1/stage1_extra_long_best.pt"
+  },
+  "training": {
+    "precision": "fp16",
+    "embedding_dim": 256,
+    "fusion_dim": 256,
+    "fusion_layers": 4,
+    "fusion_heads": 4,
+    "fusion_dropout": 0.1,
+    "fusion_lr": 0.0001,
+    "fusion_weight_decay": 0.0001,
+    "fusion_epochs": 20,
+    "early_stopping_patience": 4,
+    "early_stopping_min_delta": 0.0005,
+    "expert_dropout": 0.1,
+    "cached_fusion_batch_size": 256,
+    "cache_shard_records": 1024,
+    "batch_size": 1,
+    "grad_accum_steps": 4,
+    "clip_frame_chunk_size": 2,
+    "num_workers": 0,
+    "seed": 1337,
+    "minimum_train_per_class": 1000,
+    "minimum_val_per_class": 100,
+    "minimum_test_per_class": 100
+  },
+  "gates": {
+    "threshold_method": "target_real_fpr",
+    "maximum_genuine_hide_rate": 0.001,
+    "minimum_recall": 0.9,
+    "maximum_ece": 0.03,
+    "minimum_test_records": 800
+  },
+  "av": {
+    "enabled": false,
+    "lip_checkpoint": ""
+  }
+}

@@ -17,7 +17,8 @@ export type AdapterKind =
 export type AdapterMode =
   | "disabled"
   | "mock"
-  | "subprocess";
+  | "subprocess"
+  | "localhost";
 
 export type AdapterConfig = {
   id: string;
@@ -37,6 +38,7 @@ export type AdapterConfig = {
   notes?: string;
   hfRepoId?: string | null;
   localModelDirectory?: string | null;
+  endpoint?: string | null;
 };
 
 export type ModelAdaptersConfig = {

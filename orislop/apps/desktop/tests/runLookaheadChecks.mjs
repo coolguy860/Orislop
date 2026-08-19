@@ -29,6 +29,7 @@ async function runLookaheadChecks(storagePath) {
       channelName: "Bench Notes",
       channelUrl: "https://www.youtube.com/@benchnotes",
       visiblePageText: "normal entertainment vlog",
+      platformAiLabelText: null,
       isActive: true
     },
     {
@@ -37,17 +38,20 @@ async function runLookaheadChecks(storagePath) {
       channelName: "ClipsMax",
       channelUrl: "https://www.youtube.com/@clipsmax",
       visiblePageText: "watch till the end satisfying background like and follow",
+      platformAiLabelText: null,
       position: "next"
     },
     {
       url: "https://www.youtube.com/shorts/skip-me",
       title: "Duplicate copy",
       visiblePageText: "duplicate loaded renderer",
+      platformAiLabelText: null,
       position: "nearby"
     },
     {
       title: "Nearby no URL but enough text",
       visiblePageText: "reddit story text to speech over minecraft parkour",
+      platformAiLabelText: null,
       position: "nearby"
     }
   ];
@@ -72,6 +76,7 @@ async function runLookaheadChecks(storagePath) {
     title: "AI voice viral clips compilation",
     channelName: "Clip Mill",
     visiblePageText: "repost compilation source unknown",
+    platformAiLabelText: null,
     position: "nearby"
   }], {
     currentUrl: "https://www.youtube.com/watch?v=current",
@@ -106,7 +111,7 @@ async function runLookaheadChecks(storagePath) {
   const handlers = registerHandlersForTest(service);
   assert(handlers.has("orislop:scoreLookaheadCandidates"), "lookahead IPC registered");
   await assertRejects(
-    () => handlers.get("orislop:scoreLookaheadCandidates")(null, { candidates: [{ extractionId: "bad" }] }),
+    () => handlers.get("orislop:scoreLookaheadCandidates")({ senderFrame: { url: "file:///orislop/index.html" } }, { candidates: [{ extractionId: "bad" }] }),
     "lookahead IPC rejects invalid candidate"
   );
 }

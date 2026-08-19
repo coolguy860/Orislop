@@ -31,10 +31,19 @@ async function runAdapterChecks() {
 
   const config = JSON.parse(await readFile("configs/model_adapters.json", "utf8"));
   assert.equal(config.version, 1, "model adapter config version is present");
+  const enabledBetaAdapters = new Set(["spatial_detector", "temporal_detector", "cloud_heavy_v1"]);
   for (const adapter of Object.values(config.adapters)) {
-    assert.equal(adapter.enabled, false, `${adapter.id} is disabled by default`);
+    assert.equal(adapter.enabled, enabledBetaAdapters.has(adapter.id), `${adapter.id} has the expected default state`);
     assert(!hasAbsolutePath(adapter), `${adapter.id} config avoids hardcoded absolute paths`);
   }
+  for (const id of ["spatial_detector"]) {
+    assert.equal(config.adapters[id].mode, "localhost", `${id} uses the browser-safe localhost bridge`);
+    assert.equal(config.adapters[id].endpoint, "http://127.0.0.1:4317/v1/analyze", `${id} uses the loopback detector endpoint`);
+  }
+  assert.equal(config.adapters.temporal_detector.mode, "promoted-package-shadow", "promoted Temporal MoE starts shadow-only");
+  assert.match(config.adapters.temporal_detector.notes, /may only tighten an existing automatic decision/i, "promoted Temporal MoE vote is guarded");
+  assert.equal(config.adapters.cloud_heavy_v1.mode, "hybrid-cloud-shadow", "Cloud Heavy starts in shadow mode");
+  assert.equal(config.adapters.cloud_heavy_v1.endpoint, "https://api.orislop.com/v2/analyze", "Cloud Heavy uses the versioned API");
 
   const disabledExisting = await createExistingAiDetectorAdapter().analyze(request);
   assertUnavailable(disabledExisting, "disabled existing AI detector is unavailable");

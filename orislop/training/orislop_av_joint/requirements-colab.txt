@@ -1,0 +1,5 @@
+numpy>=2.0,<3
+opencv-python-headless>=4.10,<5
+torch>=2.4
+torchvision>=0.19
+tqdm>=4.66

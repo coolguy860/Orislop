@@ -87,9 +87,14 @@ async function runStorageChecks(basePath) {
   assertEqual("local originality index stores compact records", (await originalityStore.list()).length, 1);
 
   const cacheStore = new CacheStore({ basePath });
-  await cacheStore.saveScore(slopScore, settings);
+  await cacheStore.saveScore(slopScore, settings, obviousSlop);
   const cached = await cacheStore.getScore(obviousSlop, settings);
   assertEqual("cache retrieves score", cached?.url, obviousSlop.url);
+  const staleMetadata = await cacheStore.getScore({
+    ...obviousSlop,
+    title: "Metadata changed after YouTube hydrated the card"
+  }, settings);
+  assertEqual("cache invalidates when extracted metadata changes", staleMetadata, null);
   const bypassed = await cacheStore.getScore(obviousSlop, {
     ...settings,
     forceRescan: true

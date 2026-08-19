@@ -1,4 +1,5 @@
-import { scoreStaticSlop, type StaticScoreResult, type StaticStrictness } from "./staticSlopScore";
+import { scoreWithAiClassifier, type CombinedScoreResult } from "./combinedScore";
+import { scoreStaticSlop, type StaticStrictness } from "./staticSlopScore";
 import { parseYouTubeUrl } from "./youtube";
 
 export type FeedCandidate = {
@@ -6,11 +7,13 @@ export type FeedCandidate = {
   url: string;
   title: string;
   description: string;
+  channelName?: string;
+  durationSeconds?: number | null;
 };
 
 export type FeedScanResult = {
   candidate: FeedCandidate;
-  score: StaticScoreResult;
+  score: CombinedScoreResult;
   hidden: boolean;
   flagged: boolean;
 };
@@ -32,11 +35,21 @@ export function scanFeedCandidates(
   limit = FEED_SCAN_LIMIT
 ): FeedScanResult[] {
   return candidates.slice(0, Math.max(0, limit)).map((candidate) => {
-    const score = scoreStaticSlop({
+    const heuristic = scoreStaticSlop({
       url: candidate.url,
       title: candidate.title,
       description: candidate.description,
       strictness
+    });
+    const parsed = parseYouTubeUrl(candidate.url);
+    const score = scoreWithAiClassifier({
+      heuristic,
+      url: candidate.url,
+      title: candidate.title,
+      description: candidate.description,
+      channelName: candidate.channelName,
+      durationSeconds: candidate.durationSeconds,
+      isShort: parsed.videoKind === "short"
     });
 
     return {
@@ -49,7 +62,7 @@ export function scanFeedCandidates(
 }
 
 function parseFeedLine(line: string, index: number): FeedCandidate | null {
-  const [urlPart, titlePart = "", descriptionPart = ""] = line.split("|").map((part) => part.trim());
+  const [urlPart, titlePart = "", descriptionPart = "", channelPart = "", durationPart = ""] = line.split("|").map((part) => part.trim());
   const parsed = parseYouTubeUrl(urlPart);
   if (!parsed.videoId) {
     return null;
@@ -59,6 +72,8 @@ function parseFeedLine(line: string, index: number): FeedCandidate | null {
     id: parsed.videoId ?? `candidate-${index + 1}`,
     url: parsed.normalizedUrl ?? urlPart,
     title: titlePart || `YouTube video ${parsed.videoId}`,
-    description: descriptionPart
+    description: descriptionPart,
+    channelName: channelPart || undefined,
+    durationSeconds: durationPart ? Number(durationPart) || null : null
   };
 }

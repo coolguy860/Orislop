@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "audited_at": "2026-07-15",
+  "sources": [
+    {
+      "id": "user_owned_or_direct_license",
+      "kind": "local_or_direct_url",
+      "production_status": "eligible_after_catalog_validation",
+      "automatic_discovery": false,
+      "requirements": [
+        "commercial_use",
+        "model_training",
+        "derivatives",
+        "download_or_copy",
+        "retention",
+        "trained_model_distribution",
+        "subject_or_performer_consent_when_applicable"
+      ]
+    },
+    {
+      "id": "licensed_hugging_face_dataset",
+      "kind": "hugging_face_dataset_files",
+      "production_status": "eligible_only_with_retained_dataset_and_asset_license",
+      "automatic_discovery": false,
+      "source": "https://huggingface.co/docs/huggingface_hub/guides/download",
+      "notes": "The Hub card or repository license alone may not cover embedded media. Catalog rows need hf_repo_id, hf_path, a pinned hf_revision, and retained commercial training rights."
+    },
+    {
+      "id": "wikimedia_commons",
+      "kind": "mediawiki_api",
+      "production_status": "candidate_only_until_authenticity_and_personality_review",
+      "automatic_discovery": true,
+      "approved_license_ids": [
+        "CC0 1.0",
+        "Public domain",
+        "CC BY 2.0",
+        "CC BY 2.5",
+        "CC BY 3.0",
+        "CC BY 4.0"
+      ],
+      "source": "https://commons.wikimedia.org/wiki/Commons:Reusing_content_outside_Wikimedia",
+      "notes": "Every file keeps its own license, author, attribution, and source-page evidence. ShareAlike files are review-only by default."
+    },
+    {
+      "id": "nasa_image_video_library",
+      "kind": "nasa_api",
+      "production_status": "rights_review_required",
+      "automatic_discovery": true,
+      "source": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+      "notes": "NASA explicitly discusses AI training, but third-party copyright, logos, endorsement, and identifiable-person publicity rights still require per-item review."
+    },
+    {
+      "id": "nara",
+      "kind": "catalog_api_or_manual",
+      "production_status": "per_item_unrestricted_only",
+      "automatic_discovery": false,
+      "source": "https://www.archives.gov/research/motion-pictures/permissions",
+      "notes": "NARA holdings are not uniformly public domain. Only records with documented unrestricted status may be promoted."
+    },
+    {
+      "id": "youtube",
+      "kind": "reference_url_plus_creator_master",
+      "production_status": "creator_master_or_authorized_direct_file_only",
+      "automatic_discovery": false,
+      "source": "https://developers.google.com/youtube/terms/developer-policies",
+      "notes": "No search scraper or YouTube downloader is provided. A social post may be retained as reference_url, but training media must be supplied separately by the rights holder as a local master or authorized non-platform direct file."
+    },
+    {
+      "id": "pexels",
+      "kind": "stock_library",
+      "production_status": "written_ml_permission_required",
+      "automatic_discovery": false,
+      "source": "https://help.pexels.com/hc/en-us/articles/900005880463-What-are-the-Terms-and-Conditions",
+      "notes": "The standard terms prohibit unauthorized bulk/systematic copying and ML dataset construction. Do not count Pexels media without a separate written ML agreement and per-item provenance review."
+    },
+    {
+      "id": "pixabay",
+      "kind": "stock_library",
+      "production_status": "written_ml_permission_required",
+      "automatic_discovery": false,
+      "source": "https://pixabay.com/service/terms/",
+      "notes": "The standard Pixabay license is not a blanket ML-training license. Require a separate written agreement and per-item provenance review."
+    },
+    {
+      "id": "faceforensics_pp",
+      "kind": "benchmark",
+      "production_status": "quarantined_pending_separate_commercial_grant",
+      "automatic_discovery": false,
+      "source": "https://github.com/ondyari/FaceForensics",
+      "notes": "Dataset access is governed by FaceForensics Terms of Use; repository code licensing does not license the videos."
+    },
+    {
+      "id": "fakeavceleb",
+      "kind": "benchmark",
+      "production_status": "quarantined_pending_separate_commercial_grant",
+      "automatic_discovery": false,
+      "source": "https://github.com/DASH-Lab/FakeAVCeleb",
+      "notes": "Dataset access is request-form controlled; the MIT code license does not license the dataset."
+    },
+    {
+      "id": "av_deepfake1m",
+      "kind": "benchmark",
+      "production_status": "research_only_without_separate_agreement",
+      "automatic_discovery": false,
+      "source": "https://github.com/ControlNet/AV-Deepfake1M",
+      "notes": "Dataset access requires its EULA; repository materials are substantially CC BY-NC 4.0."
+    },
+    {
+      "id": "df40",
+      "kind": "benchmark",
+      "production_status": "research_only_without_separate_agreement",
+      "automatic_discovery": false,
+      "source": "https://github.com/YZY-stack/DF40",
+      "notes": "The project states CC BY-NC 4.0 restrictions."
+    },
+    {
+      "id": "dfdc_and_other_actor_benchmarks",
+      "kind": "benchmark",
+      "production_status": "legal_review_required",
+      "automatic_discovery": false,
+      "notes": "Rights-cleared subjects do not by themselves establish commercial model-training rights; retain the governing agreement and obtain sign-off."
+    }
+  ]
+}

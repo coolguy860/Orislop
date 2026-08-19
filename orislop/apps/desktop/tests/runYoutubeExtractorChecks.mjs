@@ -55,6 +55,7 @@ async function runChecks(storagePath) {
     }],
     descriptionCandidates: ["Made with AI. A compact lesson. #Education"],
     visibleText: "Altered or synthetic content visible on page #Learn",
+    aiDisclosureCandidates: ["Altered or synthetic content"],
     transcriptCandidates: []
   });
   assertEqual("Extracted videoId", extracted.videoId, "ai-explainer");
@@ -107,7 +108,16 @@ async function runChecks(storagePath) {
   assertEqual("Partial extraction visible text is safe", partial.visiblePageText, "");
 
   assert(extractHashtags("#One #two #One").length === 2, "Hashtags are deduplicated");
-  assertEqual("AI disclosure helper", findAiDisclosure("Altered or synthetic content"), "Altered");
+  assertEqual("AI disclosure helper", findAiDisclosure("Altered or synthetic content"), "Altered or synthetic content");
+  assertEqual("Generic AI education title is not a platform disclosure", findAiDisclosure("How to detect AI-generated content"), null);
+  const ordinaryAiText = extractShortFromSnapshot({
+    url: "https://www.youtube.com/watch?v=ai-education",
+    titleCandidates: ["How to detect AI-generated content"],
+    descriptionCandidates: ["A tutorial about synthetic media."],
+    visibleText: "Up next: AI-generated Reddit story over Minecraft parkour",
+    aiDisclosureCandidates: []
+  });
+  assertEqual("Creator and recommendation text do not become a platform label", ordinaryAiText.hasPlatformAiLabel, false);
   assert(getYouTubeShortsExtractorScript().includes("browserExtractCurrentShort"), "Webview extractor script is generated");
   assert(getYouTubeShortsExtractorScript({
     includeCommunityReaction: true,

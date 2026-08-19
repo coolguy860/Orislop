@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, type WebContents } from "electron";
+import { app, BrowserWindow, ipcMain, session, type WebContents } from "electron";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createDesktopMockService } from "./desktopService.ts";
@@ -18,16 +18,28 @@ function createWindow(): BrowserWindow {
     minHeight: 680,
     title: "Orislop Browser",
     backgroundColor: "#f6f7f9",
+    icon: join(currentDir, "../src/assets/icon256.png"),
     webPreferences: {
       preload: join(currentDir, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webviewTag: true
+      webviewTag: true,
+      navigateOnDragDrop: false
     }
   });
 
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", (event, url) => {
+    if (!isTrustedRendererUrl(url)) {
+      event.preventDefault();
+    }
+  });
+  window.webContents.on("will-redirect", (event, url) => {
+    if (!isTrustedRendererUrl(url)) {
+      event.preventDefault();
+    }
+  });
   window.webContents.on("will-attach-webview", (event, webPreferences, params) => {
     if (!isAllowedInitialWebViewSrc(params.src)) {
       event.preventDefault();
@@ -38,6 +50,8 @@ function createWindow(): BrowserWindow {
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
+    webPreferences.navigateOnDragDrop = false;
+    webPreferences.webSecurity = true;
     webPreferences.partition = "persist:orislop-youtube-shorts";
   });
   window.webContents.on("did-attach-webview", (_event, guestWebContents) => {
@@ -51,14 +65,25 @@ function createWindow(): BrowserWindow {
 }
 
 function secureGuestWebContents(guestWebContents: WebContents): void {
-  guestWebContents.setWindowOpenHandler(({ url }) => (
-    isAllowedYouTubeGuestUrl(url) ? { action: "allow" } : { action: "deny" }
-  ));
+  guestWebContents.setWindowOpenHandler(() => ({ action: "deny" }));
   guestWebContents.on("will-navigate", (event, url) => {
     if (!isAllowedYouTubeGuestUrl(url)) {
       event.preventDefault();
     }
   });
+  guestWebContents.on("will-redirect", (event, url) => {
+    if (!isAllowedYouTubeGuestUrl(url)) {
+      event.preventDefault();
+    }
+  });
+}
+
+function isTrustedRendererUrl(input: string): boolean {
+  try {
+    return new URL(input).protocol === "file:";
+  } catch {
+    return false;
+  }
 }
 
 function isAllowedInitialWebViewSrc(input: string | undefined): boolean {
@@ -84,6 +109,7 @@ const ALLOWED_YOUTUBE_GUEST_HOSTS = new Set([
 
 app.whenReady().then(() => {
   configureYouTubeCompatibleUserAgent();
+  configureYouTubePartitionPermissions();
   const service = createDesktopMockService({
     storagePath: storagePath()
   });
@@ -96,6 +122,12 @@ app.whenReady().then(() => {
     }
   });
 });
+
+function configureYouTubePartitionPermissions(): void {
+  const youtubeSession = session.fromPartition("persist:orislop-youtube-shorts");
+  youtubeSession.setPermissionCheckHandler(() => false);
+  youtubeSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+}
 
 function configureYouTubeCompatibleUserAgent(): void {
   app.userAgentFallback = app.userAgentFallback

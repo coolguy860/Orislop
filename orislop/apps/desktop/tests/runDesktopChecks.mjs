@@ -2,7 +2,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopMockService } from "../electron/desktopService.ts";
-import { registerOrislopIpcHandlers } from "../electron/ipcHandlers.ts";
+import { assertTrustedIpcSender, registerOrislopIpcHandlers } from "../electron/ipcHandlers.ts";
+
+const TRUSTED_IPC_EVENT = { senderFrame: { url: "file:///orislop/index.html" } };
 
 const REQUIRED_IPC_CHANNELS = [
   "orislop:scoreShort",
@@ -141,19 +143,24 @@ async function runDesktopChecks(storagePath) {
   for (const channel of REQUIRED_IPC_CHANNELS) {
     assert(ipcHandlers.has(channel), `IPC channel registered: ${channel}`);
   }
-  const ipcScore = await ipcHandlers.get("orislop:scoreShort")(null, { fixtureId: obviousFixture.id });
+  const ipcScore = await ipcHandlers.get("orislop:scoreShort")(TRUSTED_IPC_EVENT, { fixtureId: obviousFixture.id });
   assert(ipcScore.result, "IPC scoreShort returns a result");
   await assertRejects(
-    () => ipcHandlers.get("orislop:scoreShort")(null, { fixtureId: 42 }),
+    () => ipcHandlers.get("orislop:scoreShort")(TRUSTED_IPC_EVENT, { fixtureId: 42 }),
     "IPC validation rejects invalid score payload"
   );
   await assertRejects(
-    () => ipcHandlers.get("orislop:saveCalibrationLabel")(null, {
+    () => ipcHandlers.get("orislop:saveCalibrationLabel")(TRUSTED_IPC_EVENT, {
       fixtureId: obviousFixture.id,
       scoreResult: forcedScore.result,
       userLabel: "wild"
     }),
     "IPC validation rejects invalid calibration label"
+  );
+  assertTrustedIpcSender(TRUSTED_IPC_EVENT);
+  await assertRejects(
+    () => ipcHandlers.get("orislop:getSettings")({ senderFrame: { url: "https://evil.example/" } }),
+    "IPC rejects remote renderer origins"
   );
 }
 

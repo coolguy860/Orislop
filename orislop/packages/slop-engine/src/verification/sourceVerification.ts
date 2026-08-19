@@ -84,7 +84,9 @@ export function sourceVerificationSummaryForScore(
     return emptySummary("not_checked", query, checkedAt, ["No high-risk factual claim signal required source checking."]);
   }
 
-  return emptySummary("checking", query, checkedAt, ["High-risk claim detected; ready for controlled source check."]);
+  return emptySummary("unavailable", query, checkedAt, [
+    "High-risk claim detected, but no production source verifier is connected. A manual verification query is ready."
+  ]);
 }
 
 export function summarizeMockSourceResults(

@@ -1,0 +1,7 @@
+AEGIS motion-branch architecture
+Upstream: https://github.com/MusapYildiz/aegis-video-detector
+Pinned source revision: d86a774a6a06abe8c0356d0f821e8d85c69f3397
+License: MIT
+
+Only the motion branch is included and loaded by cloud-heavy-v1. The pixel,
+consistency, and full-fusion branches are intentionally excluded.

@@ -1,0 +1,34 @@
+{
+  "catalog": "",
+  "categories": [
+    "Videos of interviews",
+    "Videos of speeches",
+    "Videos of lectures"
+  ],
+  "counts": {
+    "label": {
+      "0": 300
+    },
+    "label_status": {
+      "provisional": 300
+    },
+    "platform": {
+      "open_dataset": 300
+    },
+    "rights_status": {
+      "approved": 232,
+      "review_required": 68
+    },
+    "usage": {
+      "reference_only": 300
+    }
+  },
+  "errors": [],
+  "records": 300,
+  "reference_or_quarantined": 300,
+  "schema_version": 1,
+  "source": "wikimedia_commons",
+  "training_eligible": 0,
+  "valid": true,
+  "warnings": []
+}

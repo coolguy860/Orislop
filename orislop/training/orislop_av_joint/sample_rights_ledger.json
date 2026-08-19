@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "sources": {
+    "replace-with-approved-corpus": {
+      "license": "Replace with the signed commercial license identifier",
+      "evidenceUri": "gs://replace-with-private-license-evidence/document.pdf",
+      "commercialUse": true,
+      "modelTraining": true,
+      "derivatives": true,
+      "documentedConsent": true,
+      "approved": false,
+      "revoked": false,
+      "reviewedBy": "",
+      "reviewedAt": ""
+    }
+  }
+}
