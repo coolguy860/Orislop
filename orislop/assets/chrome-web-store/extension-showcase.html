@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1" />
+    <title>Orislop extension showcase</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; width: 100%; }
+      body {
+        align-items: center;
+        background:
+          radial-gradient(circle at 78% 20%, rgba(23,107,255,.22), transparent 36%),
+          linear-gradient(130deg, #07090c, #101720 68%, #071126);
+        color: #f4f7fa;
+        display: grid;
+        font-family: Arial, Helvetica, sans-serif;
+        grid-template-columns: 1fr 440px;
+        overflow: hidden;
+        padding: 34px 76px;
+      }
+      .copy { max-width: 640px; }
+      .brand { align-items: center; display: flex; gap: 18px; margin-bottom: 52px; }
+      .brand img { height: 68px; width: 68px; }
+      .brand strong { font-size: 27px; letter-spacing: 2px; }
+      .brand small { color: #67d5ff; display: block; font-size: 11px; font-weight: 800; letter-spacing: .12em; margin-top: 5px; }
+      h1 { font-size: 58px; letter-spacing: -.035em; line-height: .98; margin: 0 0 24px; }
+      p { color: #b6c1cd; font-size: 20px; line-height: 1.55; margin: 0 0 30px; }
+      ul { display: grid; gap: 13px; list-style: none; margin: 0; padding: 0; }
+      li { align-items: center; display: flex; font-size: 16px; font-weight: 700; gap: 12px; }
+      li::before { background: #57d98b; border-radius: 50%; box-shadow: 0 0 0 5px rgba(87,217,139,.1); content: ""; height: 8px; width: 8px; }
+      .screen { align-self: center; background: #eef1f4; border: 1px solid rgba(255,255,255,.25); border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.48); height: 730px; justify-self: end; overflow: hidden; width: 374px; }
+      .screen img { display: block; height: auto; width: 374px; }
+    </style>
+  </head>
+  <body>
+    <section class="copy">
+      <div class="brand">
+        <img src="../brand/icon_128.png" alt="" />
+        <span><strong>ORISLOP</strong><small>FILTER THE SLOP. RECLAIM YOUR FEED.</small></span>
+      </div>
+      <h1>A calmer feed,<br />without the guesswork.</h1>
+      <p>Choose what you want to hide in plain language. Orislop scans ahead, leaves uncertain content visible, and explains every decision.</p>
+      <ul>
+        <li>YouTube, Instagram, TikTok, and LinkedIn</li>
+        <li>Private local mode with optional cloud protection</li>
+        <li>Reveal, undo, pause, and clear anytime</li>
+      </ul>
+    </section>
+    <div class="screen"><img src="popup-ui-410x800.png" alt="Orislop extension popup" /></div>
+  </body>
+</html>

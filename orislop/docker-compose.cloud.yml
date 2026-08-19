@@ -46,6 +46,7 @@ services:
     environment:
       ORISLOP_API_TOKENS: ${ORISLOP_API_TOKENS:?Set a long bootstrap/admin API token}
       ORISLOP_ALLOWED_EXTENSION_ORIGINS: ${ORISLOP_ALLOWED_EXTENSION_ORIGINS:?Set the exact unlisted chrome-extension origin}
+      ORISLOP_ALLOWED_WEB_ORIGINS: ${ORISLOP_ALLOWED_WEB_ORIGINS:-https://orislop.com}
       ORISLOP_GOOGLE_OAUTH_CLIENT_ID: ${ORISLOP_GOOGLE_OAUTH_CLIENT_ID:?Set the Chrome Extension OAuth client ID}
       ORISLOP_TOKEN_SECRET: ${ORISLOP_TOKEN_SECRET:?Set a random 32-byte or longer signing secret}
       ORISLOP_CONTENT_HMAC_SECRET: ${ORISLOP_CONTENT_HMAC_SECRET:?Set a separate random content-key secret}

@@ -3,8 +3,7 @@
   "name": "Orislop Shield",
   "short_name": "Orislop",
   "version": "1.3.0",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtvLzUtBFbbf6q3qntxoP6RLn8pyw4FVG/axdBwP2AjQSp8wHE49s6p/Nq/7wK97coh7eoKDdU52q0q0KgaGTzB7v0F51+VtNSqr9KI/XUtmvLaXpAdrIMdqwn2BkK1sGG1RH3IClSv41NPi799Oy+7tXzjso2SV12n+4yihWzPJezNd5kZplMCB2FpXyNai1yFt+vnyaYnEzmEwGXbij+viCWQ7W+gixUEE/CI3GJIViAgm8GgfpCx/fFEOeG/Ms282ZG8Tcs33mBCO745WDnweYpC9y0ygj5TJmBNfEJ/xXoyFMNbBG+X96LinKPxDKsmKGpSaBvR4bIfQVZHsVAwIDAQAB",
-  "description": "Feed and LinkedIn trust protection for synthetic, AI-written, and source-refuted content.",
+  "description": "Clean up repetitive, synthetic, and low-value feed content while useful and uncertain posts stay visible.",
   "minimum_chrome_version": "114",
   "homepage_url": "https://orislop.com",
   "permissions": ["storage", "identity"],
@@ -39,9 +38,7 @@
       "256": "icons/icon256.png"
     }
   },
-  "background": {
-    "service_worker": "background.js"
-  },
+  "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": [
@@ -54,7 +51,14 @@
         "https://www.linkedin.com/*",
         "https://linkedin.com/*"
       ],
-      "js": ["slopPreferences.js", "aiClassifierModel.generated.js", "classifier.js", "platformAdapters.js", "controlCore.js", "contentScript.js"],
+      "js": [
+        "slopPreferences.js",
+        "aiClassifierModel.generated.js",
+        "classifier.js",
+        "platformAdapters.js",
+        "controlCore.js",
+        "contentScript.js"
+      ],
       "css": ["contentStyles.css"],
       "run_at": "document_idle"
     }

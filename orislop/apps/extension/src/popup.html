@@ -153,17 +153,17 @@
       </section>
 
       <details class="diagnostics">
-        <summary><span><i aria-hidden="true">...</i><strong>Setup</strong></span><span aria-hidden="true">v</span></summary>
+        <summary><span><i aria-hidden="true">...</i><strong>Settings & help</strong></span><span aria-hidden="true">v</span></summary>
         <div class="diagnostics-body">
           <label class="model-field" for="inferenceMode">
-            <span>Inference location</span>
+            <span>Where deeper checks run</span>
             <select id="inferenceMode">
               <option value="local">This computer</option>
               <option value="hybrid">Hybrid - Fast first, Heavy when needed</option>
             </select>
           </label>
           <label class="model-field" for="performanceMode">
-            <span>Performance mode</span>
+            <span>Scanning speed</span>
             <select id="performanceMode">
               <option value="auto">Automatic (recommended)</option>
               <option value="fast">Fast - lightweight visual scan</option>
@@ -192,18 +192,22 @@
             <span><strong>Context engine</strong><small id="ollamaStatus" class="connection-status" role="status" aria-live="polite"></small></span>
             <button id="testOllamaButton" type="button">Test</button>
           </div>
-          <label class="model-field" for="ollamaModel"><span>Ollama model</span><input id="ollamaModel" type="text" value="qwen2.5:1.5b-instruct" spellcheck="false" /></label>
+          <details class="technical-settings">
+            <summary>Technical settings</summary>
+            <label class="model-field" for="ollamaModel"><span>Context model</span><input id="ollamaModel" type="text" value="qwen2.5:1.5b-instruct" spellcheck="false" /></label>
+          </details>
 
           <div class="diagnostic-row">
             <span><strong>Visual engine</strong><small id="detectorStatus" class="connection-status" role="status" aria-live="polite"></small></span>
             <button id="testDetectorButton" type="button">Test</button>
           </div>
-          <div class="model-stack" aria-label="Visual models">
+          <details class="technical-settings model-stack" aria-label="Visual model details">
+            <summary>Visual model details</summary>
             <code>umm-maybe/AI-image-detector</code>
             <code>gonnerthetooner/orislop-fusion</code>
             <code>prithivMLmods/Deepfake-Detection-Exp-02-21</code>
             <code>MusapYildiz/aegis-video-detector - motion only</code>
-          </div>
+          </details>
 
           <div class="diagnostic-row">
             <span><strong>Evidence engine</strong><small id="factCheckStatus" class="connection-status" role="status" aria-live="polite"></small></span>
@@ -211,10 +215,14 @@
           </div>
 
           <div id="localSetupNote" class="setup-note">
-            <strong>Companion services</strong>
-            <code>ollama run qwen2.5:1.5b-instruct</code>
-            <code>pnpm detector:start</code>
-            <code>pnpm fact-check:setup</code>
+            <strong>Local companion</strong>
+            <span>Open Orislop Companion on this computer to turn on every deeper check.</span>
+            <details class="technical-settings">
+              <summary>Manual start commands</summary>
+              <code>ollama run qwen2.5:1.5b-instruct</code>
+              <code>pnpm detector:start</code>
+              <code>pnpm fact-check:setup</code>
+            </details>
           </div>
           <button id="copyDiagnosticsButton" class="secondary-button" type="button">Copy diagnostics</button>
           <button id="clearAllDataButton" class="danger-button" type="button">Clear local Orislop data</button>
@@ -228,7 +236,7 @@
       </section>
 
       <p id="popupStatus" class="popup-status" role="status" aria-live="polite"></p>
-      <footer><span><i aria-hidden="true"></i><span id="inferenceLocation">Local inference - private source keys</span></span><span>v1.1.0</span></footer>
+      <footer><span><i aria-hidden="true"></i><span id="inferenceLocation">Private local protection</span></span><span>v1.3.0</span></footer>
     </main>
     <script src="oauthConfig.generated.js"></script>
     <script src="slopPreferences.js"></script>

@@ -1497,7 +1497,7 @@
       renderExplanationHeader(panel, "Explanation unavailable", host);
       const message = document.createElement("p");
       message.className = "orislop-explanation-error";
-      message.textContent = error instanceof Error ? error.message : "Orislop could not explain this video.";
+      message.textContent = friendlyContentProblem(error, "Orislop could not explain this item right now.");
       panel.append(message);
     }
   }
@@ -1638,7 +1638,7 @@
         while (history.length > 6) history.shift();
       } catch (error) {
         waiting.remove();
-        appendFactChatMessage(messages, "assistant", error instanceof Error ? error.message : "Orislop could not answer that question.", "", true);
+        appendFactChatMessage(messages, "assistant", friendlyContentProblem(error, "Orislop could not answer that question right now."), "", true);
       } finally {
         pending = false;
         input.disabled = false;
@@ -2086,6 +2086,29 @@
 
   function cleanText(value, limit) {
     return String(value || "").replace(/\s+/g, " ").trim().slice(0, limit);
+  }
+
+  function friendlyContentProblem(error, fallback) {
+    const text = String(error instanceof Error ? error.message : error || "").toLowerCase();
+    if (/429|rate limit|too many|quota/.test(text)) {
+      return "The deeper checker is busy right now. Try again shortly.";
+    }
+    if (/401|403|unauthor|forbidden|token|session|expired/.test(text)) {
+      return "Your secure connection expired. Open Orislop and sign in again.";
+    }
+    if (/timeout|timed out|abort/.test(text)) {
+      return "That check took too long. The item stayed visible; try again in a moment.";
+    }
+    if (/not enough|no trusted|caption|transcript/.test(text)) {
+      return "There is not enough reliable context to answer that yet. The item stayed visible.";
+    }
+    if (/fetch|network|econn|refused|offline|unavailable|not reachable|receiving end/.test(text)) {
+      return "Orislop cannot reach the deeper checker right now. Fast protection is still working.";
+    }
+    if (/loading|warming|starting|503/.test(text)) {
+      return "The deeper checker is warming up. Try again in a moment.";
+    }
+    return fallback;
   }
 
   function emptyScanProgress() {

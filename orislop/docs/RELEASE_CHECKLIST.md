@@ -44,6 +44,7 @@
 ## Privacy and security
 
 - [ ] Published extension origin is the only value in `ORISLOP_ALLOWED_EXTENSION_ORIGINS`
+- [ ] `ORISLOP_ALLOWED_WEB_ORIGINS` contains only the exact production website origin
 - [ ] Originless POST override is disabled
 - [ ] Local port 4317 is not exposed beyond loopback; cloud port is reachable only through managed TLS ingress
 - [ ] Cloud mode requires bearer auth and rejects wrong/missing tokens
@@ -55,8 +56,11 @@
 ## Distribution
 
 - [ ] Extension manifest and release info both report 1.3.0
-- [ ] Chrome Web Store ZIP uploaded from `dist/orislop-browser-extension.zip`
+- [ ] Chrome Web Store ZIP uploaded from `dist/orislop-browser-extension-webstore.zip`
+- [ ] Store ZIP manifest is Manifest V3 and contains no `key` field
+- [ ] Store screenshots, promo tile, privacy disclosure, and support contact match the current UI
 - [ ] Vercel production deployment uses the verified commit and `apps/web/dist`
+- [ ] Vercel secrets `ORISLOP_AI_API_URL`, `ORISLOP_WEB_API_TOKEN`, and `ORISLOP_WEB_ORIGIN` are set for Production and Preview as intended
 - [ ] `orislop.com` TLS, canonical domain, privacy page, and download link checked
 - [ ] Rollback ZIP and previous Vercel deployment retained
 - [ ] Release notes include behavior changes, model changes, permissions, known limits, and rollback instructions

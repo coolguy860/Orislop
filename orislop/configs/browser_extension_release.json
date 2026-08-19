@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "product": "Orislop Shield",
+  "version": "1.3.0",
+  "chromeWebStoreItemId": "nhkffdhagjignajnmlgkgekpkfljhfdd",
+  "manifestKeyPolicy": "forbidden-in-web-store-zip",
+  "notes": [
+    "The Chrome Web Store owns the stable extension identity.",
+    "Do not add a key field to apps/extension/manifest.json or any upload ZIP.",
+    "Google OAuth redirect configuration must use the published Web Store item ID."
+  ]
+}

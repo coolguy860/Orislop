@@ -1,0 +1,31 @@
+{
+  "product": "Orislop Shield",
+  "version": "1.3.0",
+  "assets": [
+    {
+      "file": "promo-tile-440x280.png",
+      "width": 440,
+      "height": 280,
+      "purpose": "Chrome Web Store small promotional tile",
+      "source": "promo-tile.svg"
+    },
+    {
+      "file": "screenshot-home-1280x800.png",
+      "width": 1280,
+      "height": 800,
+      "purpose": "Chrome Web Store product screenshot",
+      "source": "live local build of apps/web"
+    },
+    {
+      "file": "screenshot-extension-1280x800.png",
+      "width": 1280,
+      "height": 800,
+      "purpose": "Chrome Web Store extension screenshot",
+      "source": "live apps/extension popup rendered inside extension-showcase.html"
+    }
+  ],
+  "notes": [
+    "Re-render assets after material brand or UI changes.",
+    "Store approval is external and is not implied by this manifest."
+  ]
+}

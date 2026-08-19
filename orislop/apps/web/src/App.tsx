@@ -20,7 +20,12 @@ import {
   type WebFeedbackRecord
 } from "./lib/storage";
 import { parseYouTubeUrl } from "./lib/youtube";
-import { AI_CLASSIFIER_MODEL } from "./lib/aiClassifierModel.generated";
+import {
+  analyzeWithCloudAi,
+  getCloudAiStatus,
+  type CloudAiResult,
+  type CloudAiStatus
+} from "./lib/cloudAi";
 
 type AnalyzerState = {
   url: string;
@@ -31,7 +36,7 @@ type AnalyzerState = {
   durationSeconds: string;
 };
 
-const WEB_RELEASE_LABEL = "Orislop Shield 1.1";
+const WEB_RELEASE_LABEL = "Orislop Shield 1.3";
 
 function renderBrandMark(modifier = ""): string {
   return `
@@ -83,8 +88,13 @@ export function mountApp(root: HTMLElement): void {
   let localVideoResult: LocalVideoPrototypeResult | null = null;
   let localVideoError: string | null = null;
   let analyzerError: string | null = null;
+  let cloudStatus: CloudAiStatus = "checking";
+  let cloudResult: CloudAiResult | null = null;
+  let cloudError: string | null = null;
+  let cloudAnalyzing = false;
 
   render();
+  void refreshCloudStatus();
 
   function scoreCurrentForm(): CombinedScoreResult {
     const heuristic = scoreStaticSlop({
@@ -120,11 +130,12 @@ export function mountApp(root: HTMLElement): void {
             <span class="site-brand__wordmark">ORISLOP</span>
           </a>
           <nav>
+            <a href="#how-it-works">How it works</a>
             <a href="#analyzer">Analyzer</a>
             <a href="#clean-feed">Clean feed</a>
             <a href="#extension-download">Extension</a>
           </nav>
-          <span class="model-pill"><i aria-hidden="true"></i> Local AI ready</span>
+          <span class="model-pill model-pill--${cloudStatus}" id="cloudStatusPill"><i aria-hidden="true"></i> ${cloudStatusLabel(cloudStatus)}</span>
         </header>
 
         <section class="hero" id="top">
@@ -143,9 +154,9 @@ export function mountApp(root: HTMLElement): void {
               repost farms, engagement bait, and empty content before they take over your feed.
             </p>
             <div class="hero__actions">
-              <a class="primary-link" href="#analyzer">Analyze a YouTube link</a>
-              <a class="secondary-link" href="#clean-feed">View clean feed</a>
-              <a class="secondary-link" href="./downloads/orislop-browser-extension.zip" download>Download extension</a>
+              <a class="primary-link" href="#extension-download">Add Orislop to Chrome</a>
+              <a class="secondary-link" href="#analyzer">Try the AI analyzer</a>
+              <a class="secondary-link" href="#how-it-works">See how it works</a>
             </div>
             <div class="hero__trust-strip" aria-label="Product guarantees">
               <span>Local or cloud AI</span>
@@ -154,9 +165,9 @@ export function mountApp(root: HTMLElement): void {
               <span>${WEB_RELEASE_LABEL}</span>
             </div>
             <div class="scope-banner" role="note">
-              <strong>Transparent by design.</strong>
-              The website analyzer uses explainable metadata scoring. The extension adds language intelligence
-              plus lightweight, spatial, and temporal verification through local companion or protected cloud mode.
+              <strong>Protection without the black box.</strong>
+              Get an instant on-device check, an optional live AI second opinion, and clear reasons you can inspect.
+              The extension adds the full visual and temporal detector when media is available.
             </div>
             <dl class="verdict-guide" aria-label="Orislop verdict definitions">
               <div><dt>Don't skip</dt><dd>Useful, original, ordinary, or uncertain content stays visible.</dd></div>
@@ -172,8 +183,8 @@ export function mountApp(root: HTMLElement): void {
             </div>
             <div class="product-visual">
               <div class="product-visual__header">
-                <span>Live clean-feed scan</span>
-                <strong>AI model active</strong>
+                <span>Live clean-feed protection</span>
+                <strong>Scanning ahead</strong>
               </div>
               <div class="product-feed-row product-feed-row--watch">
                 <div class="product-thumb product-thumb--green"></div>
@@ -206,8 +217,8 @@ export function mountApp(root: HTMLElement): void {
 
         <section class="download-section panel" id="extension-download">
           <div class="download-copy">
-            <p class="eyebrow">Browser extension</p>
-            <h2>Protect every feed—including LinkedIn.</h2>
+            <p class="eyebrow">One click, cleaner feeds</p>
+            <h2>Protection that stays out of your way.</h2>
             <p>
               The browser extension protects YouTube, Instagram Reels, TikTok, and LinkedIn directly. It scans
               ahead without scrolling, removes Skip-rated short-form items, annotates LinkedIn posts and profiles,
@@ -234,8 +245,9 @@ export function mountApp(root: HTMLElement): void {
           </div>
           <div class="download-card">
             <a class="download-button" href="./downloads/orislop-browser-extension.zip" download>
-              Download Orislop extension
+              Get the Chrome-ready package
             </a>
+            <p class="download-card__availability">Chrome Web Store release is being reviewed. This verified package is available for private testing now.</p>
             <ol class="install-list">
               <li>Unzip the download.</li>
               <li>Open <code>chrome://extensions</code> or <code>edge://extensions</code>.</li>
@@ -243,10 +255,22 @@ export function mountApp(root: HTMLElement): void {
               <li>Choose Load unpacked and select the unzipped folder.</li>
             </ol>
             <p class="prototype-note">
-              Local mode keeps model inference on your device. Cloud mode sends supported page/media URLs and
-              extracted feed text to the authenticated Orislop API for inference. Developer mode is needed only
-              for an unpacked build before store publication.
+              Private testing requires Developer mode while the store listing is reviewed. Local mode keeps model
+              inference on your device. Optional cloud mode uses the protected Orislop service for deeper checks.
             </p>
+          </div>
+        </section>
+
+        <section class="how-grid" id="how-it-works" aria-labelledby="howHeading">
+          <div class="section-heading">
+            <p class="eyebrow">How it works</p>
+            <h2 id="howHeading">Quietly useful from the first scroll.</h2>
+            <p>Orislop looks ahead, asks for deeper analysis only when it helps, and leaves uncertain content visible.</p>
+          </div>
+          <div class="how-grid__cards">
+            <article class="how-card"><span>01</span><h3>Reads the feed</h3><p>Understands titles, captions, transcripts, creators, and patterns before content takes your attention.</p></article>
+            <article class="how-card"><span>02</span><h3>Checks what matters</h3><p>Escalates uncertain items to visual, temporal, audio, and context models instead of running every model blindly.</p></article>
+            <article class="how-card"><span>03</span><h3>Explains the decision</h3><p>Useful and uncertain posts remain. Strong low-value signals are hidden with a plain-language reason and an undo path.</p></article>
           </div>
         </section>
 
@@ -254,8 +278,8 @@ export function mountApp(root: HTMLElement): void {
           <div class="panel analyzer-panel">
             <div class="panel__header">
               <div>
-                <p class="eyebrow">Analyzer</p>
-                <h2>YouTube URL analyzer</h2>
+                <p class="eyebrow">Try Orislop</p>
+                <h2>Check a YouTube video</h2>
               </div>
               <label class="field compact-field">
                 <span>Strictness</span>
@@ -306,13 +330,13 @@ export function mountApp(root: HTMLElement): void {
                 </label>
               </div>
             </details>
-            <button class="primary-button" id="analyzeButton" type="button" ${analyzerDisabled ? "disabled" : ""}>Analyze video</button>
+            <button class="primary-button" id="analyzeButton" type="button" ${analyzerDisabled || cloudAnalyzing ? "disabled" : ""}>${cloudAnalyzing ? "Checking with Orislop AI..." : "Analyze with Orislop AI"}</button>
             <p id="analyzerError" class="form-error" hidden></p>
 
             <div class="analyzer-assurance" role="note">
-              <span><strong>Runs locally</strong>No account, API key, or upload</span>
-              <span><strong>Fails closed</strong>Invalid URLs never produce scores</span>
-              <span><strong>Explainable</strong>Every result shows its evidence</span>
+              <span><strong>Instant answer</strong>The first check runs on your device</span>
+              <span><strong>Live second opinion</strong>Context AI joins when available</span>
+              <span><strong>Clear reasons</strong>No unexplained score or hidden failure</span>
             </div>
           </div>
 
@@ -327,8 +351,8 @@ export function mountApp(root: HTMLElement): void {
             <div class="model-status-card">
               <i aria-hidden="true"></i>
               <div>
-                <strong>Orislop AI Classifier v1</strong>
-                <span>${AI_CLASSIFIER_MODEL.trainingExamples}-example seed model, ${AI_CLASSIFIER_MODEL.features.length} weighted features, local inference</span>
+                <strong>Instant protection is ready</strong>
+                <span>Runs privately in this tab while live context AI adds a second opinion when available.</span>
               </div>
             </div>
           </div>
@@ -374,18 +398,29 @@ export function mountApp(root: HTMLElement): void {
           </aside>
         </section>
 
+        <section class="faq-section" aria-labelledby="faqHeading">
+          <div class="section-heading">
+            <p class="eyebrow">Good to know</p>
+            <h2 id="faqHeading">Built to help—not take over.</h2>
+          </div>
+          <div class="faq-list">
+            <details><summary>What happens when Orislop is unsure?</summary><p>The item stays visible. Orislop is intentionally conservative, and every hidden item has a reveal or undo path.</p></details>
+            <details><summary>Does it upload my whole browsing history?</summary><p>No. Local activity stays in your browser. Optional cloud checks send only the disclosed item context and supported public media reference after you enable them.</p></details>
+            <details><summary>Can I choose what gets filtered?</summary><p>Yes. Use a normal sentence or pick exact categories, then pause protection or clear activity whenever you want.</p></details>
+          </div>
+        </section>
+
         <section class="info-grid">
           <article class="panel">
-            <p class="eyebrow">Temporal detector</p>
-            <h2>What the larger Orislop pipeline is designed to do</h2>
+            <p class="eyebrow">Deep protection</p>
+            <h2>More than a title checker</h2>
             <p>
-              Orislop's full temporal detector concept analyzes behavior over time, not just title text
-              or a single thumbnail. The larger pipeline can compare frame sequences, pacing, motion,
-              and temporal artifacts to detect synthetic or low-value video patterns.
+              The extension can analyze behavior over time—not just title text or one thumbnail. It compares
+              frame sequences, pacing, motion, audio alignment, and visual artifacts when a deeper check is useful.
             </p>
             <p>
-              This static web build currently uses lightweight client-side scoring. It does not claim
-              to run the full PyTorch temporal detector on Namecheap shared hosting.
+              The web demo gives an instant local result and can ask the live context service for a second opinion.
+              Full media analysis happens through the extension, where the actual video can be safely inspected.
             </p>
           </article>
 
@@ -412,9 +447,9 @@ export function mountApp(root: HTMLElement): void {
             <p class="eyebrow">Privacy</p>
             <h2>Privacy and inference policy</h2>
             <p>
-              Analysis runs locally in your browser. No account is required.
-              Feedback, settings, and decision-lab logs are saved in local browser storage on your device.
-              Use the clear buttons to delete local logs. The hosted static site does not receive those records.
+              Instant analysis runs locally in your browser. No account is required. When live context AI is
+              available, only the YouTube link and text you entered are sent for that second opinion—never a local file.
+              Feedback, settings, and decision-lab logs stay in local browser storage on your device.
             </p>
             <ul class="privacy-list">
               <li>No YouTube API key is embedded in this site.</li>
@@ -428,7 +463,8 @@ export function mountApp(root: HTMLElement): void {
         <footer class="footer">
           <span>Built by Aarush Shah</span>
           <a href="./privacy.html">Privacy policy</a>
-          <span>Static MVP. Full detector pipeline not included in this hosted build.</span>
+          <a href="https://github.com/coolguy860/orislop/issues" target="_blank" rel="noreferrer">Support</a>
+          <span>${WEB_RELEASE_LABEL} · Built for clear, calm control</span>
           <span id="feedbackCount"></span>
         </footer>
       </main>
@@ -484,6 +520,8 @@ export function mountApp(root: HTMLElement): void {
     urlInput.addEventListener("input", () => {
       form = { ...form, url: urlInput.value };
       result = null;
+      cloudResult = null;
+      cloudError = null;
       hasAnalyzed = false;
       analyzerError = messageForInvalidUrl(form.url);
       renderPreview();
@@ -508,8 +546,14 @@ export function mountApp(root: HTMLElement): void {
     });
 
     analyzeButton.addEventListener("click", () => {
+      void analyzeCurrentForm();
+    });
+
+    async function analyzeCurrentForm(): Promise<void> {
       if (!validateAnalyzerForm()) {
         result = null;
+        cloudResult = null;
+        cloudError = null;
         hasAnalyzed = false;
         renderScore();
         renderAnalyzerError();
@@ -518,9 +562,27 @@ export function mountApp(root: HTMLElement): void {
       analyzerError = null;
       result = scoreCurrentForm();
       hasAnalyzed = true;
+      cloudResult = null;
+      cloudError = null;
+      cloudAnalyzing = true;
       renderAnalyzerError();
       renderScore();
-    });
+      syncAnalyzerControlState();
+      try {
+        cloudResult = await analyzeWithCloudAi(form);
+        cloudStatus = "online";
+      } catch (error) {
+        cloudError = error instanceof Error
+          ? error.message
+          : "The live checker could not be reached. Your instant on-device result is still ready.";
+        cloudStatus = "offline";
+      } finally {
+        cloudAnalyzing = false;
+        renderCloudStatusPill();
+        renderScore();
+        syncAnalyzerControlState();
+      }
+    }
 
     feedInputElement.addEventListener("input", () => {
       feedInput = feedInputElement.value;
@@ -544,6 +606,8 @@ export function mountApp(root: HTMLElement): void {
 
   function updateFormField(field: keyof AnalyzerState, value: string): void {
     form = { ...form, [field]: value };
+    cloudResult = null;
+    cloudError = null;
     if (hasAnalyzed && !messageForInvalidUrl(form.url)) {
       result = scoreCurrentForm();
     } else if (!parseYouTubeUrl(form.url).videoId) {
@@ -579,9 +643,12 @@ export function mountApp(root: HTMLElement): void {
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
-    const disabled = Boolean(messageForInvalidUrl(form.url));
+    const disabled = Boolean(messageForInvalidUrl(form.url)) || cloudAnalyzing;
     button.disabled = disabled;
-    button.title = disabled ? "Enter a valid YouTube URL first" : "Analyze this YouTube item";
+    button.textContent = cloudAnalyzing ? "Checking with Orislop AI..." : "Analyze with Orislop AI";
+    button.title = cloudAnalyzing
+      ? "Orislop is checking the context"
+      : disabled ? "Enter a valid YouTube URL first" : "Analyze this YouTube item";
   }
 
   function renderAnalyzerError(): void {
@@ -669,6 +736,8 @@ export function mountApp(root: HTMLElement): void {
       createSourceMeter("Transcript", result.sourceScores.transcript, result.sourceScores.transcript === null ? "Not provided" : "Separate text evidence"),
       createSourceMeter("Video detector", result.sourceScores.spatiotemporal, result.spatiotemporalUsed ? "Used" : "Not run in static web")
     );
+
+    const cloudCard = createCloudAiCard();
 
     const savedFeedback = feedback.find((record) => (
       record.videoId === result?.videoId
@@ -770,7 +839,54 @@ export function mountApp(root: HTMLElement): void {
     technicalBody.append(scoringNote, breakdown, sourceDetails, aiDetails, signalDetails);
     technicalDetails.append(technicalSummary, technicalBody);
 
-    host.append(summary, sourceGrid, feedbackBox, technicalDetails);
+    host.append(summary, cloudCard, sourceGrid, feedbackBox, technicalDetails);
+  }
+
+  function createCloudAiCard(): HTMLElement {
+    const card = document.createElement("section");
+    card.className = "cloud-insight";
+    card.setAttribute("aria-live", "polite");
+
+    const icon = document.createElement("span");
+    icon.className = "cloud-insight__icon";
+    icon.textContent = cloudAnalyzing ? "···" : cloudResult?.available ? "AI" : "↗";
+
+    const copy = document.createElement("div");
+    const heading = document.createElement("h3");
+    const detail = document.createElement("p");
+    if (cloudAnalyzing) {
+      card.classList.add("cloud-insight--loading");
+      heading.textContent = "Live context AI is taking a second look";
+      detail.textContent = "Your instant result is already above. This usually finishes in a few seconds.";
+    } else if (cloudResult?.available && cloudResult.verdict) {
+      card.classList.add(cloudResult.verdict === "skip" ? "cloud-insight--skip" : "cloud-insight--safe");
+      const agrees = cloudResult.verdict === "skip" ? result?.recommendation === "skip" : result?.recommendation !== "skip";
+      heading.textContent = `${agrees ? "Live AI agrees" : "Live AI sees this differently"}: ${cloudResult.verdict === "skip" ? "Skip" : "Don't skip"}`;
+      const confidence = cloudResult.confidence === null ? "" : ` · ${Math.round(cloudResult.confidence * 100)}% confidence`;
+      const category = cloudResult.category ? ` · ${humanizeCategory(cloudResult.category)}` : "";
+      detail.textContent = `${cloudResult.reason}${confidence}${category}`;
+    } else {
+      card.classList.add("cloud-insight--offline");
+      heading.textContent = "Instant check complete";
+      detail.textContent = cloudError || "The live AI second opinion is optional. Your result above was completed privately on this device.";
+    }
+    copy.append(heading, detail);
+    card.append(icon, copy);
+    return card;
+  }
+
+  async function refreshCloudStatus(): Promise<void> {
+    cloudStatus = await getCloudAiStatus();
+    renderCloudStatusPill();
+  }
+
+  function renderCloudStatusPill(): void {
+    const pill = root.querySelector("#cloudStatusPill");
+    if (!(pill instanceof HTMLElement)) {
+      return;
+    }
+    pill.className = `model-pill model-pill--${cloudStatus}`;
+    pill.innerHTML = `<i aria-hidden="true"></i> ${cloudStatusLabel(cloudStatus)}`;
   }
 
   function scoreBreakdownItem(label: string, value: string): HTMLElement {
@@ -1076,6 +1192,23 @@ function labelForRecommendation(recommendation: CombinedScoreResult["recommendat
 
 function capitalize(value: string): string {
   return value.length > 0 ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
+}
+
+function cloudStatusLabel(status: CloudAiStatus): string {
+  switch (status) {
+    case "online":
+      return "Live AI online";
+    case "offline":
+      return "Instant protection ready";
+    case "not_configured":
+      return "Instant protection ready";
+    default:
+      return "Checking live AI";
+  }
+}
+
+function humanizeCategory(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function parseOptionalNumber(value: string): number | null {
