@@ -791,7 +791,7 @@
     const visibleText = collectScopedText(element, platform, title, channelName);
     const transcriptText = collectTranscriptText(element, platform);
     const mediaUrl = findMediaUrl(element);
-    const previewUrl = findPreviewUrl(element, platform);
+    const previewUrl = findPreviewUrl(element, platform, parsed.itemId);
     const visibleVideo = findVisibleVideo(element);
     const itemId = parsed.itemId || stableHash([link, title, channelName].join("|"));
     const itemKey = `${platform}:${itemId}`;
@@ -869,7 +869,7 @@
     }
   }
 
-  function findPreviewUrl(element, platform = currentPlatform()) {
+  function findPreviewUrl(element, platform = currentPlatform(), itemId = "") {
     const visibleVideo = findVisibleVideo(element);
     const values = [
       visibleVideo?.poster,
@@ -908,6 +908,13 @@
     for (const value of values) {
       const preview = cleanText(value, 4000);
       if (isSupportedPreviewUrl(preview)) return preview;
+    }
+    const youtubeId = cleanText(itemId, 64);
+    if (platform === "youtube" && /^[A-Za-z0-9_-]{3,64}$/.test(youtubeId)) {
+      // YouTube keeps the watch-page player outside ytd-watch-metadata. Using
+      // its public thumbnail lets Fast inspect one bounded image instead of
+      // downloading or decoding a potentially hours-long video.
+      return `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
     }
     return "";
   }
