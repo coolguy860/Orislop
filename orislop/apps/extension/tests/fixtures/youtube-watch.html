@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>YouTube watch adapter fixture</title></head>
+  <body>
+    <ytd-watch-metadata id="candidate">
+      <h1><yt-formatted-string>How bridges survive extreme winds</yt-formatted-string></h1>
+      <a href="https://www.youtube.com/watch?v=AbCdEf123_-">Open video</a>
+      <ytd-channel-name><a href="https://www.youtube.com/@EngineeringLab">Engineering Lab</a></ytd-channel-name>
+      <div id="description">A detailed engineering documentary with diagrams and original reporting.</div>
+    </ytd-watch-metadata>
+    <script>globalThis.__ORISLOP_TEST__ = true;</script>
+    <script src="../../src/aiClassifierModel.generated.js"></script>
+    <script src="../../src/classifier.js"></script>
+    <script src="../../src/platformAdapters.js"></script>
+    <script src="../../src/controlCore.js"></script>
+    <script src="../../src/contentScript.js"></script>
+    <script>
+      const api = globalThis.__ORISLOP_EXTENSION_TEST_API__;
+      const element = document.getElementById("candidate");
+      const candidate = api.extractCandidate(element, "youtube");
+      const decision = globalThis.OrislopClassifier.scoreCandidate(candidate);
+      document.body.dataset.result = encodeURIComponent(JSON.stringify({
+        platform: candidate.platform,
+        itemId: candidate.itemId,
+        itemKind: candidate.itemKind,
+        title: candidate.title,
+        creator: candidate.channelName,
+        mediaType: candidate.mediaType,
+        mediaUrl: candidate.mediaUrl,
+        previewUrl: candidate.previewUrl,
+        factCheckEligible: decision.factCheckEligible
+      }));
+    </script>
+  </body>
+</html>

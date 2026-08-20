@@ -9,6 +9,14 @@ const testRoot = path.dirname(fileURLToPath(import.meta.url));
 const browsers = findBrowsers();
 
 {
+  const youtubeWatch = runFixture("youtube-watch.html");
+  assert.equal(youtubeWatch.platform, "youtube");
+  assert.equal(youtubeWatch.itemId, "AbCdEf123_-");
+  assert.equal(youtubeWatch.itemKind, "video");
+  assert.equal(youtubeWatch.mediaType, "image", "Fast should analyze the bounded watch-page thumbnail");
+  assert.equal(youtubeWatch.mediaUrl, "", "Fast watch-page coverage must not require the full video");
+  assert.equal(youtubeWatch.previewUrl, "https://i.ytimg.com/vi/AbCdEf123_-/hqdefault.jpg");
+
   const instagram = runFixture("instagram.html");
   assert.equal(instagram.platform, "instagram");
   assert.equal(instagram.itemId, "C123abc");
@@ -67,7 +75,7 @@ const browsers = findBrowsers();
   assert.match(explanation.liveIndicatorText, /Orislop is checking 3 videos/);
   assert.equal(explanation.liveIndicatorVisible, true, "supported feeds must visibly confirm that Orislop is scanning");
 
-  console.log("Instagram, TikTok, LinkedIn, and explanation Chromium DOM checks passed");
+  console.log("YouTube watch, Instagram, TikTok, LinkedIn, and explanation Chromium DOM checks passed");
 }
 
 function runFixture(name) {
