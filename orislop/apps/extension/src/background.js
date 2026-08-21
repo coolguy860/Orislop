@@ -1,4 +1,4 @@
-importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierModel.generated.js", "classifier.js");
+importScripts("oauthConfig.generated.js", "slopPreferences.js", "productTelemetry.js", "aiClassifierModel.generated.js", "classifier.js");
 
 (() => {
   "use strict";
@@ -29,14 +29,23 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   const CLOUD_REFRESH_KEY = "orislop.cloud.refresh";
   const CLOUD_ACCOUNT_KEY = "orislop.cloud.account";
   const CLOUD_CONSENT_KEY = "orislop.cloud.consent";
+  const TELEMETRY_QUEUE_KEY = "orislop.productTelemetry.queueV1";
+  const TELEMETRY_IDENTITY_KEY = "orislop.productTelemetry.installationV1";
+  const TELEMETRY_STATUS_KEY = "orislop.productTelemetry.statusV1";
+  const ATTENTION_STATE_KEY = "orislop.productTelemetry.attentionV1";
+  const TELEMETRY = globalThis.OrislopProductTelemetry;
   const ollamaCache = new Map();
   const ollamaBatchInflight = new Map();
   const explanationCache = new Map();
   const cloudDecisionIds = new Map();
   const cloudHeavyReadiness = new Map();
   const localDetectorQueues = new Map();
+  const scoreBatchInflight = new Map();
   let ollamaRequestLane = Promise.resolve();
+  let telemetryWriteLane = Promise.resolve();
+  let telemetryFlushInflight = null;
   let localDetectorCapabilityCache = { checkedAt: 0, accelerator: "" };
+  let telemetrySessionId = "";
 
   chrome.runtime.onInstalled?.addListener?.(() => void refreshBadgeFromSettings());
   chrome.storage?.onChanged?.addListener?.((changes, areaName) => {
@@ -46,10 +55,11 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   });
   void refreshBadgeFromSettings();
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (sender?.id && sender.id !== chrome.runtime.id) return false;
     if (message?.type === "orislop.scoreBatch") {
       const candidates = Array.isArray(message.candidates) ? message.candidates.slice(0, MAX_BATCH_SIZE) : [];
-      loadRuntimeSettings(message.settings).then((settings) => scoreBatch(candidates, settings))
+      loadRuntimeSettings(message.settings).then((settings) => scoreBatchCoalesced(candidates, settings))
         .then(sendResponse)
         .catch((error) => {
           const response = {
@@ -162,8 +172,131 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       return true;
     }
 
+    if (message?.type === "orislop.telemetry") {
+      recordProductEvent(message.event).then(sendResponse)
+        .catch(() => sendResponse({ ok: false, recorded: false, error: "Product insights could not be saved locally." }));
+      return true;
+    }
+
+    if (message?.type === "orislop.sessionProgress") {
+      updateAttentionSession(message.progress).then(sendResponse)
+        .catch(() => sendResponse({ ok: false, error: "Session progress could not be saved." }));
+      return true;
+    }
+
+    if (message?.type === "orislop.telemetryStatus") {
+      productTelemetryStatus().then(sendResponse)
+        .catch(() => sendResponse({ ok: false, enabled: false, queued: 0, error: "Product insight status is unavailable." }));
+      return true;
+    }
+
+    if (message?.type === "orislop.telemetryFlush") {
+      loadRuntimeSettings().then(flushProductTelemetry).then(sendResponse)
+        .catch(() => sendResponse({ ok: false, error: "Product insights will retry later." }));
+      return true;
+    }
+
+    if (message?.type === "orislop.telemetryPrivacyUpdate") {
+      applyTelemetryPrivacy(message.enabled === true).then(sendResponse)
+        .catch(() => sendResponse({ ok: false, error: "Privacy preference could not be applied." }));
+      return true;
+    }
+
+    if (message?.type === "orislop.attentionResponse") {
+      saveAttentionResponse(message.response).then(sendResponse)
+        .catch(() => sendResponse({ ok: false, error: "Your response could not be saved." }));
+      return true;
+    }
+
     return false;
   });
+
+  function scoreBatchCoalesced(candidates, settings) {
+    const key = scoreBatchDedupeKey(candidates, settings);
+    const existing = scoreBatchInflight.get(key);
+    if (existing) {
+      void recordProductEvent({
+        eventName: "request_deduplicated",
+        attributes: {
+          requestKind: "score_batch",
+          batchSize: candidates.length,
+          inferenceMode: settings.inferenceMode,
+          performanceMode: settings.performanceMode,
+          dedupeCount: 1
+        }
+      });
+      return existing;
+    }
+    const startedAt = performance.now();
+    void recordProductEvent({
+      eventName: "scan_batch_started",
+      attributes: {
+        requestKind: "score_batch",
+        batchSize: candidates.length,
+        inferenceMode: settings.inferenceMode,
+        performanceMode: settings.performanceMode
+      }
+    });
+    const pending = scoreBatch(candidates, settings).then((response) => {
+      void recordProductEvent({
+        eventName: "scan_batch_completed",
+        attributes: {
+          requestKind: "score_batch",
+          batchSize: candidates.length,
+          itemCount: Array.isArray(response?.results) ? response.results.length : 0,
+          outcome: response?.ok === false ? "degraded" : "complete",
+          status: response?.detectorStatus || "unknown",
+          durationBucket: durationBucket(performance.now() - startedAt),
+          inferenceMode: settings.inferenceMode,
+          performanceMode: settings.performanceMode,
+          modelIds: collectRuntimeModelIds(response)
+        }
+      });
+      return response;
+    }).catch((error) => {
+      void recordProductEvent({
+        eventName: "request_failed",
+        attributes: {
+          requestKind: "score_batch",
+          outcome: "failed",
+          reasonCode: error?.name === "AbortError" ? "timeout" : "runtime_error",
+          inferenceMode: settings.inferenceMode,
+          performanceMode: settings.performanceMode,
+          durationBucket: durationBucket(performance.now() - startedAt)
+        }
+      });
+      throw error;
+    }).finally(() => scoreBatchInflight.delete(key));
+    scoreBatchInflight.set(key, pending);
+    while (scoreBatchInflight.size > 100) scoreBatchInflight.delete(scoreBatchInflight.keys().next().value);
+    return pending;
+  }
+
+  function scoreBatchDedupeKey(candidates, settings) {
+    const ids = candidates.map((candidate) => clean(candidate?.itemKey || candidate?.id, 180)).filter(Boolean);
+    return `${settings.inferenceMode}:${settings.performanceMode}:${ids.join("|")}`;
+  }
+
+  function collectRuntimeModelIds(response) {
+    const models = [];
+    if (response?.model) models.push(response.model);
+    for (const result of Array.isArray(response?.results) ? response.results : []) {
+      const detector = result?.detectorDecision;
+      for (const value of [detector?.detector, detector?.model, detector?.spatialModel, detector?.temporalModel]) {
+        if (value) models.push(value);
+      }
+    }
+    return [...new Set(models)].slice(0, 8);
+  }
+
+  function durationBucket(milliseconds) {
+    const value = Math.max(0, Number(milliseconds) || 0);
+    if (value < 250) return "under_250ms";
+    if (value < 1000) return "250ms_1s";
+    if (value < 5000) return "1s_5s";
+    if (value < 30000) return "5s_30s";
+    return "over_30s";
+  }
 
   async function scoreBatch(candidates, settings) {
     const performance = getPerformanceProfile(settings);
@@ -1429,7 +1562,7 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       try {
         await cloudAuthorizedFetch(`${sanitizeCloudApiUrl(settings.cloudApiUrl)}/v2/auth/logout`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Orislop-Installation-Id": batch[0].installationId },
           body: "{}"
         }, 8000);
       } catch {
@@ -1470,10 +1603,13 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   async function cloudAuthorizedFetch(url, options = {}, timeoutMs = HYBRID_CLOUD_TIMEOUT_MS) {
     let access = await readSessionValue(CLOUD_ACCESS_KEY);
     if (!access?.token || Number(access.expiresAt || 0) <= Date.now() + 15000) access = await refreshCloudSession();
-    const execute = (token) => fetchWithTimeout(url, {
+    const execute = (token) => fetchWithPolicy(url, {
       ...options,
       headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` }
-    }, timeoutMs);
+    }, timeoutMs, {
+      idempotent: ["GET", "HEAD"].includes(String(options.method || "GET").toUpperCase()),
+      requestKind: "cloud_api"
+    });
     let response = await execute(access.token);
     if (response.status === 401) {
       access = await refreshCloudSession();
@@ -1552,6 +1688,244 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
     return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
   }
 
+  function recordProductEvent(input) {
+    telemetryWriteLane = telemetryWriteLane.catch(() => {}).then(async () => {
+      const settings = await loadRuntimeSettings();
+      if (!settings.productAnalyticsEnabled || !TELEMETRY) return { ok: true, recorded: false, reason: "disabled" };
+      const installationId = await ensureTelemetryInstallationId();
+      const event = TELEMETRY.sanitizeEvent(input, {
+        eventId: randomBase64Url(18),
+        installationId,
+        sessionId: telemetrySessionId || (telemetrySessionId = randomBase64Url(18)),
+        occurredAt: new Date().toISOString(),
+        extensionVersion: chrome.runtime.getManifest().version
+      });
+      if (!event) return { ok: false, recorded: false, error: "Event did not match the privacy-safe schema." };
+      const stored = await chrome.storage.local.get([TELEMETRY_QUEUE_KEY, TELEMETRY_STATUS_KEY]);
+      const before = TELEMETRY.normalizeQueue(stored[TELEMETRY_QUEUE_KEY]);
+      const queue = TELEMETRY.appendBounded(before, event);
+      const dropped = Math.max(0, before.length + 1 - queue.length);
+      const status = normalizeTelemetryStatus(stored[TELEMETRY_STATUS_KEY]);
+      await chrome.storage.local.set({
+        [TELEMETRY_QUEUE_KEY]: queue,
+        [TELEMETRY_STATUS_KEY]: {
+          ...status,
+          queued: queue.length,
+          dropped: status.dropped + dropped,
+          lastRecordedAt: Date.now()
+        }
+      });
+      if (queue.length >= TELEMETRY.MAX_BATCH_SIZE) void flushProductTelemetry(settings);
+      return { ok: true, recorded: true, queued: queue.length };
+    });
+    return telemetryWriteLane;
+  }
+
+  async function ensureTelemetryInstallationId() {
+    const result = await chrome.storage.local.get(TELEMETRY_IDENTITY_KEY);
+    const existing = String(result?.[TELEMETRY_IDENTITY_KEY] || "");
+    if (/^[a-zA-Z0-9_-]{16,96}$/.test(existing)) return existing;
+    const generated = randomBase64Url(24);
+    await chrome.storage.local.set({ [TELEMETRY_IDENTITY_KEY]: generated });
+    return generated;
+  }
+
+  async function flushProductTelemetry(settingsInput) {
+    const settings = settingsInput?.productAnalyticsEnabled === true ? settingsInput : await loadRuntimeSettings();
+    if (!settings.productAnalyticsEnabled || !TELEMETRY) return { ok: true, sent: 0, reason: "disabled" };
+    if (telemetryFlushInflight) return telemetryFlushInflight;
+    telemetryFlushInflight = (async () => {
+      const stored = await chrome.storage.local.get([TELEMETRY_QUEUE_KEY, TELEMETRY_STATUS_KEY]);
+      const queue = TELEMETRY.normalizeQueue(stored[TELEMETRY_QUEUE_KEY]);
+      const status = normalizeTelemetryStatus(stored[TELEMETRY_STATUS_KEY]);
+      if (queue.length === 0) return { ok: true, sent: 0 };
+      if (status.nextAttemptAt > Date.now()) return { ok: false, sent: 0, reason: "backoff" };
+      const batch = queue.slice(0, TELEMETRY.MAX_BATCH_SIZE);
+      try {
+        const response = await fetchWithPolicy(`${sanitizeCloudApiUrl(settings.cloudApiUrl)}/v2/telemetry`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ schemaVersion: TELEMETRY.SCHEMA_VERSION, events: batch })
+        }, 8000, { idempotent: true, maxRetries: 1, requestKind: "telemetry_upload", reportTelemetry: false });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.ok !== true) throw new Error(payload.error || `Product insights returned ${response.status}`);
+        const sentIds = new Set(batch.map((event) => event.eventId));
+        const latest = await chrome.storage.local.get(TELEMETRY_QUEUE_KEY);
+        const remaining = TELEMETRY.normalizeQueue(latest[TELEMETRY_QUEUE_KEY]).filter((event) => !sentIds.has(event.eventId));
+        await chrome.storage.local.set({
+          [TELEMETRY_QUEUE_KEY]: remaining,
+          [TELEMETRY_STATUS_KEY]: {
+            ...status,
+            queued: remaining.length,
+            sent: status.sent + batch.length,
+            consecutiveFailures: 0,
+            nextAttemptAt: 0,
+            lastDeliveredAt: Date.now(),
+            lastErrorCode: ""
+          }
+        });
+        return { ok: true, sent: batch.length, queued: remaining.length };
+      } catch (error) {
+        const failures = Math.min(8, status.consecutiveFailures + 1);
+        const nextAttemptAt = Date.now() + Math.min(15 * 60 * 1000, 15000 * (2 ** (failures - 1)));
+        await chrome.storage.local.set({
+          [TELEMETRY_STATUS_KEY]: {
+            ...status,
+            queued: queue.length,
+            consecutiveFailures: failures,
+            nextAttemptAt,
+            lastErrorCode: error?.name === "AbortError" ? "timeout" : "delivery_unavailable"
+          }
+        });
+        return { ok: false, sent: 0, queued: queue.length, error: "Product insights will retry later." };
+      }
+    })().finally(() => {
+      telemetryFlushInflight = null;
+    });
+    return telemetryFlushInflight;
+  }
+
+  async function productTelemetryStatus() {
+    const [settings, stored] = await Promise.all([
+      loadRuntimeSettings(),
+      chrome.storage.local.get([TELEMETRY_QUEUE_KEY, TELEMETRY_STATUS_KEY, ATTENTION_STATE_KEY])
+    ]);
+    const queue = TELEMETRY?.normalizeQueue(stored[TELEMETRY_QUEUE_KEY]) || [];
+    const status = normalizeTelemetryStatus(stored[TELEMETRY_STATUS_KEY]);
+    return {
+      ok: true,
+      enabled: settings.productAnalyticsEnabled,
+      attentionEnabled: settings.attentionLogEnabled,
+      queued: queue.length,
+      sent: status.sent,
+      dropped: status.dropped,
+      lastDeliveredAt: status.lastDeliveredAt,
+      lastErrorCode: status.lastErrorCode,
+      attentionEligible: attentionEligible(stored[ATTENTION_STATE_KEY], settings)
+    };
+  }
+
+  function normalizeTelemetryStatus(value) {
+    const input = value && typeof value === "object" ? value : {};
+    return {
+      queued: Math.max(0, Number(input.queued) || 0),
+      sent: Math.max(0, Number(input.sent) || 0),
+      dropped: Math.max(0, Number(input.dropped) || 0),
+      consecutiveFailures: Math.max(0, Number(input.consecutiveFailures) || 0),
+      nextAttemptAt: Math.max(0, Number(input.nextAttemptAt) || 0),
+      lastRecordedAt: Math.max(0, Number(input.lastRecordedAt) || 0),
+      lastDeliveredAt: Math.max(0, Number(input.lastDeliveredAt) || 0),
+      lastErrorCode: ["", "timeout", "delivery_unavailable"].includes(input.lastErrorCode) ? input.lastErrorCode : ""
+    };
+  }
+
+  async function applyTelemetryPrivacy(enabled) {
+    if (enabled) {
+      const settings = await loadRuntimeSettings();
+      void recordProductEvent({ eventName: "feature_toggled", attributes: { feature: "product_analytics", outcome: "enabled" } });
+      void flushProductTelemetry({ ...settings, productAnalyticsEnabled: true });
+      return { ok: true, enabled: true };
+    }
+    let installationId = "";
+    const stored = await chrome.storage.local.get(TELEMETRY_IDENTITY_KEY);
+    installationId = String(stored?.[TELEMETRY_IDENTITY_KEY] || "");
+    await chrome.storage.local.remove([TELEMETRY_QUEUE_KEY, TELEMETRY_STATUS_KEY, TELEMETRY_IDENTITY_KEY]);
+    if (/^[a-zA-Z0-9_-]{16,96}$/.test(installationId)) {
+      const settings = await loadRuntimeSettings();
+      void fetchWithPolicy(`${sanitizeCloudApiUrl(settings.cloudApiUrl)}/v2/telemetry`, {
+        method: "DELETE",
+        headers: { "X-Orislop-Installation-Id": installationId }
+      }, 5000, { idempotent: true, maxRetries: 1, requestKind: "telemetry_delete", reportTelemetry: false }).catch(() => {});
+    }
+    return { ok: true, enabled: false };
+  }
+
+  async function updateAttentionSession(progress) {
+    const settings = await loadRuntimeSettings();
+    if (!settings.attentionLogEnabled) return { ok: true, recorded: false, reason: "disabled" };
+    const now = Date.now();
+    const stored = await chrome.storage.local.get(ATTENTION_STATE_KEY);
+    const previous = stored?.[ATTENTION_STATE_KEY] && typeof stored[ATTENTION_STATE_KEY] === "object"
+      ? stored[ATTENTION_STATE_KEY] : {};
+    const inactive = now - Number(previous.lastActivityAt || 0) > 30 * 60 * 1000;
+    const state = {
+      sessionStartedAt: inactive ? now : Number(previous.sessionStartedAt || now),
+      lastActivityAt: now,
+      itemCount: (inactive ? 0 : Number(previous.itemCount || 0)) + Math.min(100, Math.max(0, Number(progress?.itemCount) || 0)),
+      hiddenCount: (inactive ? 0 : Number(previous.hiddenCount || 0)) + Math.min(100, Math.max(0, Number(progress?.hiddenCount) || 0)),
+      platform: ["youtube", "instagram", "tiktok", "linkedin"].includes(progress?.platform) ? progress.platform : "other",
+      lastPromptAt: Number(previous.lastPromptAt || 0),
+      dismissedUntil: Number(previous.dismissedUntil || 0)
+    };
+    await chrome.storage.local.set({ [ATTENTION_STATE_KEY]: state });
+    return { ok: true, recorded: true, eligible: attentionEligible(state, settings) };
+  }
+
+  function attentionEligible(input, settings) {
+    if (!settings?.attentionLogEnabled || !input || typeof input !== "object") return false;
+    const now = Date.now();
+    return now - Number(input.sessionStartedAt || now) >= 5 * 60 * 1000
+      && Number(input.itemCount || 0) >= 20
+      && now - Number(input.lastPromptAt || 0) >= 7 * 24 * 60 * 60 * 1000
+      && now >= Number(input.dismissedUntil || 0);
+  }
+
+  async function saveAttentionResponse(response) {
+    const value = ["better", "same", "worse", "dismissed"].includes(response) ? response : "";
+    if (!value) return { ok: false, error: "Choose one of the available responses." };
+    const now = Date.now();
+    const stored = await chrome.storage.local.get(ATTENTION_STATE_KEY);
+    const previous = stored?.[ATTENTION_STATE_KEY] && typeof stored[ATTENTION_STATE_KEY] === "object"
+      ? stored[ATTENTION_STATE_KEY] : {};
+    await chrome.storage.local.set({
+      [ATTENTION_STATE_KEY]: {
+        ...previous,
+        lastPromptAt: now,
+        dismissedUntil: now + 7 * 24 * 60 * 60 * 1000,
+        lastResponse: value
+      }
+    });
+    if (value !== "dismissed") {
+      await recordProductEvent({
+        eventName: "attention_response",
+        attributes: {
+          satisfaction: value,
+          platform: previous.platform || "other",
+          itemCount: Number(previous.itemCount || 0),
+          hiddenCount: Number(previous.hiddenCount || 0)
+        }
+      });
+    }
+    return { ok: true, saved: value !== "dismissed" };
+  }
+
+  async function fetchWithPolicy(url, options = {}, timeoutMs = OLLAMA_TIMEOUT_MS, policy = {}) {
+    const method = String(options.method || "GET").toUpperCase();
+    const maxRetries = Math.max(0, Math.min(2, Number(policy.maxRetries ?? 2)));
+    if (!TELEMETRY?.executeWithRetry) return fetchWithTimeout(url, options, timeoutMs);
+    return TELEMETRY.executeWithRetry(
+      () => fetchWithTimeout(url, options, timeoutMs),
+      {
+        method,
+        maxRetries,
+        idempotent: policy.idempotent === true,
+        sleep: (milliseconds) => pause(Math.min(5000, milliseconds)),
+        onRetry: ({ attempt, delay, status }) => {
+          if (policy.reportTelemetry === false) return;
+        void recordProductEvent({
+          eventName: "request_retried",
+          attributes: {
+            requestKind: policy.requestKind || "api",
+              retryCount: attempt,
+            status: status ? `http_${status}` : "network_error",
+            retryAfterBucket: delay >= 5000 ? "5s" : delay >= 1000 ? "1s_5s" : "under_1s"
+          }
+        });
+        }
+      }
+    );
+  }
+
   function fetchWithTimeout(url, options, timeoutMs = OLLAMA_TIMEOUT_MS) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -1578,7 +1952,9 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       inferenceMode: ["local", "hybrid", "cloud"].includes(value.inferenceMode) ? value.inferenceMode : "local",
       performanceMode: normalizePerformanceMode(value.performanceMode ?? "heavy"),
       cloudApiUrl: sanitizeCloudApiUrl(value.cloudApiUrl),
-      slopPreferences: globalThis.OrislopSlopPreferences.normalize(value.slopPreferences)
+      slopPreferences: globalThis.OrislopSlopPreferences.normalize(value.slopPreferences),
+      productAnalyticsEnabled: value.productAnalyticsEnabled === true,
+      attentionLogEnabled: value.attentionLogEnabled === true
     };
   }
 

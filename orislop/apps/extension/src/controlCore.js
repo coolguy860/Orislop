@@ -3,7 +3,7 @@
 
   function createDecisionCache({ limit = 500 } = {}) {
     const decisions = new Map();
-    const userOverrides = new Set();
+    const userOverrides = new Map();
 
     function get(key) {
       if (!key || userOverrides.has(key)) return null;
@@ -25,7 +25,9 @@
 
     function allow(key) {
       if (!key) return;
-      userOverrides.add(key);
+      userOverrides.delete(key);
+      userOverrides.set(key, true);
+      while (userOverrides.size > limit) userOverrides.delete(userOverrides.keys().next().value);
       decisions.delete(key);
     }
 

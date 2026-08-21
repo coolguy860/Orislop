@@ -53,6 +53,7 @@
       ],
       "js": [
         "slopPreferences.js",
+        "productTelemetry.js",
         "aiClassifierModel.generated.js",
         "classifier.js",
         "platformAdapters.js",

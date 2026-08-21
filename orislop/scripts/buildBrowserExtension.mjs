@@ -23,6 +23,7 @@ mkdirSync(path.join(distRoot, "icons"), { recursive: true });
 const files = [
   ["manifest.json", "manifest.json"],
   ["src/slopPreferences.js", "slopPreferences.js"],
+  ["src/productTelemetry.js", "productTelemetry.js"],
   ["src/aiClassifierModel.generated.js", "aiClassifierModel.generated.js"],
   ["src/oauthConfig.generated.js", "oauthConfig.generated.js"],
   ["src/classifier.js", "classifier.js"],

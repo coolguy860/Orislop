@@ -10,6 +10,7 @@ const youtubeModule = path.join(repoRoot, "apps", "web", "dist", "assets", "lib"
 const feedFilterModule = path.join(repoRoot, "apps", "web", "dist", "assets", "lib", "feedFilter.js");
 const extensionDownload = path.join(repoRoot, "apps", "web", "dist", "downloads", "orislop-browser-extension.zip");
 const appBundle = path.join(repoRoot, "apps", "web", "dist", "assets", "App.js");
+const stylesBundle = path.join(repoRoot, "apps", "web", "dist", "assets", "styles.css");
 const combinedScoreBundle = path.join(repoRoot, "apps", "web", "dist", "assets", "lib", "combinedScore.js");
 const privacyPage = path.join(repoRoot, "apps", "web", "dist", "privacy.html");
 const releaseInfoPage = path.join(repoRoot, "apps", "web", "dist", "release-info.json");
@@ -181,6 +182,7 @@ assert.ok(feedResults.some((result) => result.hidden), "At least one slop candid
 assert.ok(feedResults.every((result) => result.candidate.id !== "extra999"), "Only next 10 candidates should be scanned");
 
 const appSource = readFileSync(appBundle, "utf8");
+const stylesSource = readFileSync(stylesBundle, "utf8");
 const shippedWebSource = `${appSource}\n${readFileSync(combinedScoreBundle, "utf8")}`;
 assert.ok(appSource.includes("Enter a YouTube URL before analyzing."));
 assert.ok(appSource.includes("Enter a valid YouTube URL first"));
@@ -196,9 +198,17 @@ assert.ok(appSource.includes("Orislop Shield 1.3"));
 assert.ok(appSource.includes("Does this result feel right?"));
 assert.ok(appSource.includes("How Orislop made this score"));
 assert.ok(appSource.includes("Instant protection is ready"));
-assert.ok(appSource.includes("Live context AI is taking a second look"));
+assert.ok(appSource.includes("Taking a closer look"));
 assert.ok(appSource.includes("Your instant on-device result is still ready"));
 assert.ok(appSource.includes("Protection that stays out of your way"));
+assert.ok(appSource.includes("Spend less time on videos"));
+assert.ok(appSource.includes("It watches the feed, not you."));
+assert.ok(appSource.includes("One answer. Several independent checks."));
+assert.ok(appSource.includes("A calmer feed, built by Aarush Shah."));
+assert.ok(!/[—–]/.test(appSource), "Public product copy must not contain em or en dashes");
+assert.ok(stylesSource.includes("product-scan"));
+assert.ok(stylesSource.includes("signal-travel"));
+assert.ok(stylesSource.includes("prefers-reduced-motion"));
 assert.ok(appSource.includes("Supported: MP4, WebM, MOV, M4V, or OGV"));
 assert.ok(appSource.includes("privacy.html"));
 

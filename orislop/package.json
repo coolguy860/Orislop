@@ -27,7 +27,7 @@
     "web:deploy:zip": "pnpm run web:build && node scripts/createNamecheapZip.mjs",
     "vercel:build": "pnpm run web:build",
     "extension:build": "node scripts/buildBrowserExtension.mjs",
-    "extension:test": "node apps/extension/tests/runExtensionChecks.mjs",
+    "extension:test": "node apps/extension/tests/runExtensionChecks.mjs && node apps/extension/tests/runProductTelemetryChecks.mjs",
     "extension:test:live": "node apps/extension/tests/runOllamaLiveCheck.mjs",
     "extension:test:youtube-live": "pnpm run extension:build && node apps/extension/tests/runYoutubeLiveScrollCheck.mjs",
     "extension:test:platforms-live": "pnpm run extension:build && node apps/extension/tests/runLivePlatformSmokeChecks.mjs",

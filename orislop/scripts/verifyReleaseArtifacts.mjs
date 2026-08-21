@@ -118,7 +118,7 @@ assert.ok(appBundle.includes("Clear reasons"), "Analyzer must promise understand
 assert.ok(appBundle.includes("Base points"), "Score breakdown must be visible");
 assert.ok(appBundle.includes("Orislop Shield 1.3"), "Release marker must be visible in the app bundle");
 assert.ok(appBundle.includes("AI classifier predicted"), "AI classifier explanation must be visible in the app bundle");
-assert.ok(appBundle.includes("Live context AI is taking a second look"), "Live AI second-opinion state must be visible in the app bundle");
+assert.ok(appBundle.includes("Taking a closer look"), "Live closer-look state must be visible in the app bundle");
 assert.ok(webJavaScript.includes("Spatiotemporal detector was not run"), "Unavailable spatiotemporal status must be present in a shipped web module");
 
 const indexHtml = readZipEntry(siteZip, "index.html").toString("utf8");

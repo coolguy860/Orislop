@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import os from "node:os";
+import { execFileSync, spawn } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const testRoot = path.dirname(fileURLToPath(import.meta.url));
+const profileRoot = path.resolve(testRoot, "..", "..", "..", ".cache", "extension-test-profiles");
+mkdirSync(profileRoot, { recursive: true });
 const browsers = findBrowsers();
 
 {
-  const youtubeWatch = runFixture("youtube-watch.html");
+  const youtubeWatch = await runFixture("youtube-watch.html");
   assert.equal(youtubeWatch.platform, "youtube");
   assert.equal(youtubeWatch.itemId, "AbCdEf123_-");
   assert.equal(youtubeWatch.itemKind, "video");
@@ -17,7 +18,7 @@ const browsers = findBrowsers();
   assert.equal(youtubeWatch.mediaUrl, "", "Fast watch-page coverage must not require the full video");
   assert.equal(youtubeWatch.previewUrl, "https://i.ytimg.com/vi/AbCdEf123_-/hqdefault.jpg");
 
-  const instagram = runFixture("instagram.html");
+  const instagram = await runFixture("instagram.html");
   assert.equal(instagram.platform, "instagram");
   assert.equal(instagram.itemId, "C123abc");
   assert.equal(instagram.itemKind, "short");
@@ -29,7 +30,7 @@ const browsers = findBrowsers();
   assert.equal(instagram.mediaHost, "media");
   assert.equal(instagram.factCheckEligible, true);
 
-  const tiktok = runFixture("tiktok.html");
+  const tiktok = await runFixture("tiktok.html");
   assert.equal(tiktok.platform, "tiktok");
   assert.equal(tiktok.itemId, "741234567891");
   assert.equal(tiktok.itemKind, "short");
@@ -41,7 +42,7 @@ const browsers = findBrowsers();
   assert.equal(tiktok.mediaHost, "media");
   assert.equal(tiktok.factCheckEligible, true);
 
-  const linkedin = runFixture("linkedin.html");
+  const linkedin = await runFixture("linkedin.html");
   assert.equal(linkedin.platform, "linkedin");
   assert.equal(linkedin.itemId, "123456789");
   assert.equal(linkedin.itemKind, "post");
@@ -53,12 +54,12 @@ const browsers = findBrowsers();
   assert.equal(linkedin.fullVideoAnalysisRequested, true);
   assert.equal(linkedin.factCheckEligible, true);
 
-  const linkedinVideo = runFixture("linkedin-video.html");
+  const linkedinVideo = await runFixture("linkedin-video.html");
   assert.equal(linkedinVideo.mediaType, "video");
   assert.equal(linkedinVideo.fullVideoAnalysisRequested, false);
   assert.equal(linkedinVideo.trustLabel, "Video check on open");
 
-  const explanation = runFixture("explanation.html");
+  const explanation = await runFixture("explanation.html");
   assert.equal(explanation.explainButton, "Explain video");
   assert.equal(explanation.panelInsideMedia, true, "explanation panel must stay inside the video surface");
   assert.match(explanation.panelText, /How rainbows form/);
@@ -78,21 +79,23 @@ const browsers = findBrowsers();
   console.log("YouTube watch, Instagram, TikTok, LinkedIn, and explanation Chromium DOM checks passed");
 }
 
-function runFixture(name) {
+async function runFixture(name) {
   const fixture = path.join(testRoot, "fixtures", name);
   const failures = [];
   for (const browser of browsers) {
-    const profile = mkdtempSync(path.join(os.tmpdir(), "orislop-platform-dom-"));
+    const profile = mkdtempSync(path.join(profileRoot, "orislop-platform-dom-"));
     try {
-      const output = execFileSync(browser, [
+      const output = await runBrowser(browser, [
         "--headless=new",
         "--no-sandbox",
+        "--disable-dev-shm-usage",
         "--disable-gpu",
         "--disable-software-rasterizer",
         "--disable-gpu-compositing",
         "--use-gl=disabled",
         "--disable-features=Vulkan,Dawn,Graphite,UseSkiaRenderer,VizDisplayCompositor",
         "--disable-background-networking",
+        "--disable-background-mode",
         "--disable-component-update",
         "--disable-sync",
         "--no-default-browser-check",
@@ -100,20 +103,101 @@ function runFixture(name) {
         "--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE localhost",
         "--allow-file-access-from-files",
         "--no-first-run",
+        "--virtual-time-budget=8000",
         `--user-data-dir=${profile}`,
         "--dump-dom",
         pathToFileURL(fixture).href
-      ], { encoding: "utf8", timeout: 20000, windowsHide: true });
+      ]);
       const encoded = output.match(/data-result="([^"]+)"/)?.[1];
       if (!encoded) throw new Error(`Browser fixture ${name} did not publish a result`);
       return JSON.parse(decodeURIComponent(encoded.replaceAll("&amp;", "&")));
     } catch (error) {
       failures.push(`${path.basename(browser)}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      rmSync(profile, { recursive: true, force: true, maxRetries: 8, retryDelay: 125 });
+      removeTemporaryProfile(profile);
     }
   }
   throw new Error(`Every installed Chromium browser failed fixture ${name}: ${failures.join(" | ")}`);
+}
+
+function removeTemporaryProfile(profile) {
+  try {
+    rmSync(profile, { recursive: true, force: true, maxRetries: 16, retryDelay: 200 });
+  } catch (error) {
+    if (!["EBUSY", "ENOTEMPTY", "EPERM"].includes(error?.code)) throw error;
+    console.warn(`Temporary Chromium profile is still closing; leaving cleanup to the next run: ${profile}`);
+  }
+}
+
+function runBrowser(browser, arguments_) {
+  if (process.platform === "win32") {
+    return Promise.resolve(execFileSync(browser, arguments_, {
+      encoding: "utf8",
+      timeout: 30000,
+      windowsHide: true
+    }));
+  }
+
+  const maxOutputBytes = 4 * 1024 * 1024;
+  const timeoutMs = 30000;
+  return new Promise((resolve, reject) => {
+    const child = spawn(browser, arguments_, {
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true
+    });
+    const stdout = [];
+    const stderr = [];
+    let outputBytes = 0;
+    let settled = false;
+    let timer;
+
+    const finish = (error, value = "") => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(value);
+    };
+    const capture = (target, chunk) => {
+      outputBytes += chunk.length;
+      if (outputBytes > maxOutputBytes) {
+        terminateBrowserTree(child);
+        finish(new Error(`Browser output exceeded ${maxOutputBytes} bytes`));
+        return;
+      }
+      target.push(chunk);
+    };
+
+    child.stdout.on("data", (chunk) => capture(stdout, chunk));
+    child.stderr.on("data", (chunk) => capture(stderr, chunk));
+    child.once("error", (error) => finish(error));
+    child.once("close", (code, signal) => {
+      terminateBrowserTree(child);
+      const output = Buffer.concat(stdout).toString("utf8");
+      if (code === 0) {
+        finish(null, output);
+        return;
+      }
+      const diagnostic = Buffer.concat(stderr).toString("utf8").slice(-2000);
+      finish(new Error(`Browser exited with code ${code ?? "none"} signal ${signal ?? "none"}: ${diagnostic}`));
+    });
+
+    timer = setTimeout(() => {
+      terminateBrowserTree(child);
+      const diagnostic = Buffer.concat(stderr).toString("utf8").slice(-2000);
+      finish(new Error(`Browser exceeded ${timeoutMs}ms and was terminated: ${diagnostic}`));
+    }, timeoutMs);
+    timer.unref();
+  });
+}
+
+function terminateBrowserTree(child) {
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch {
+    // The process may have exited between the timeout and tree termination.
+  }
 }
 
 function findBrowsers() {
