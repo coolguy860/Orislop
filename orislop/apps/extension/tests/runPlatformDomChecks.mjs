@@ -95,6 +95,7 @@ async function runFixture(name) {
         "--use-gl=disabled",
         "--disable-features=Vulkan,Dawn,Graphite,UseSkiaRenderer,VizDisplayCompositor",
         "--disable-background-networking",
+        "--disable-background-mode",
         "--disable-component-update",
         "--disable-sync",
         "--no-default-browser-check",
@@ -113,10 +114,19 @@ async function runFixture(name) {
     } catch (error) {
       failures.push(`${path.basename(browser)}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      rmSync(profile, { recursive: true, force: true, maxRetries: 8, retryDelay: 125 });
+      removeTemporaryProfile(profile);
     }
   }
   throw new Error(`Every installed Chromium browser failed fixture ${name}: ${failures.join(" | ")}`);
+}
+
+function removeTemporaryProfile(profile) {
+  try {
+    rmSync(profile, { recursive: true, force: true, maxRetries: 16, retryDelay: 200 });
+  } catch (error) {
+    if (!["EBUSY", "ENOTEMPTY", "EPERM"].includes(error?.code)) throw error;
+    console.warn(`Temporary Chromium profile is still closing; leaving cleanup to the next run: ${profile}`);
+  }
 }
 
 function runBrowser(browser, arguments_) {

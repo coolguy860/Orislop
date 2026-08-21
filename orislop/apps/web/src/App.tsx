@@ -92,6 +92,11 @@ export function mountApp(root: HTMLElement): void {
   let cloudResult: CloudAiResult | null = null;
   let cloudError: string | null = null;
   let cloudAnalyzing = false;
+  const revealedBlocks = new Set<string>();
+  let revealObserver: IntersectionObserver | null = null;
+  let experienceWired = false;
+  let initialHashHandled = false;
+  let viewportFrame = 0;
 
   render();
   void refreshCloudStatus();
@@ -123,111 +128,126 @@ export function mountApp(root: HTMLElement): void {
   function render(): void {
     const analyzerDisabled = Boolean(messageForInvalidUrl(form.url));
     root.innerHTML = `
+      <div class="page-progress" aria-hidden="true"><span></span></div>
+      <div class="site-ambient" aria-hidden="true">
+        <i class="site-ambient__orb site-ambient__orb--orange"></i>
+        <i class="site-ambient__orb site-ambient__orb--blue"></i>
+        <i class="site-ambient__grid"></i>
+      </div>
       <main class="site-shell">
         <header class="site-nav" aria-label="Primary navigation">
           <a class="site-brand" href="#top" aria-label="Orislop home">
             <span class="site-brand__mark" aria-hidden="true">${renderBrandMark("brand-symbol--nav")}</span>
-            <span class="site-brand__wordmark">ORISLOP</span>
+            <span class="site-brand__identity"><strong>ORISLOP</strong><small>Attention control</small></span>
           </a>
           <nav>
             <a href="#how-it-works">How it works</a>
+            <a href="#intelligence">Technology</a>
             <a href="#analyzer">Analyzer</a>
-            <a href="#clean-feed">Clean feed</a>
-            <a href="#extension-download">Extension</a>
+            <a href="#privacy">Privacy</a>
           </nav>
-          <span class="model-pill model-pill--${cloudStatus}" id="cloudStatusPill"><i aria-hidden="true"></i> ${cloudStatusLabel(cloudStatus)}</span>
+          <div class="site-nav__status">
+            <span class="release-chip">Private beta</span>
+            <span class="model-pill model-pill--${cloudStatus}" id="cloudStatusPill"><i aria-hidden="true"></i> ${cloudStatusLabel(cloudStatus)}</span>
+          </div>
         </header>
 
         <section class="hero" id="top">
-          <div class="hero__copy">
+          <div class="hero__copy is-revealed" data-reveal="hero-copy">
             <div class="hero-brand" aria-label="Orislop. Filter the slop. Reclaim your feed.">
               <span class="hero-brand__mark" aria-hidden="true">${renderBrandMark("brand-symbol--hero")}</span>
               <span class="hero-brand__copy">
                 <strong>ORISLOP</strong>
-                <small><b>FILTER THE SLOP.</b> RECLAIM YOUR FEED.</small>
+                <small><b>A CALMER FEED.</b> ON YOUR TERMS.</small>
               </span>
             </div>
-            <p class="eyebrow">Private clean-feed intelligence</p>
-            <h1>Your attention deserves a firewall.</h1>
+            <div class="hero__signal-line"><span></span>Built for people who are tired of the feed</div>
+            <h1>Spend less time on videos <em>you never wanted.</em></h1>
             <p class="hero__subhead">
-              Orislop Shield reads context, verifies visual authenticity, and removes repetitive AI clips,
-              repost farms, engagement bait, and empty content before they take over your feed.
+              Orislop checks what is coming next. Useful videos stay. Repetitive AI clips and bait get moved
+              out of the way. You can see why, change the rules, and undo any decision.
             </p>
             <div class="hero__actions">
-              <a class="primary-link" href="#extension-download">Add Orislop to Chrome</a>
-              <a class="secondary-link" href="#analyzer">Try the AI analyzer</a>
-              <a class="secondary-link" href="#how-it-works">See how it works</a>
+              <a class="primary-link primary-link--hero" href="#extension-download"><span>Get Orislop for Chrome</span><b aria-hidden="true">&rarr;</b></a>
+              <a class="secondary-link" href="#analyzer">Try it on a video</a>
             </div>
             <div class="hero__trust-strip" aria-label="Product guarantees">
-              <span>Local or cloud AI</span>
-              <span>Private by default</span>
-              <span>No auto-scroll</span>
-              <span>${WEB_RELEASE_LABEL}</span>
+              <span><i aria-hidden="true"></i>Runs locally first</span>
+              <span><i aria-hidden="true"></i>Does not scroll for you</span>
+              <span><i aria-hidden="true"></i>Shows its reasons</span>
             </div>
             <div class="scope-banner" role="note">
-              <strong>Protection without the black box.</strong>
-              Get an instant on-device check, an optional live AI second opinion, and clear reasons you can inspect.
-              The extension adds the full visual and temporal detector when media is available.
+              <span class="scope-banner__icon" aria-hidden="true">01</span>
+              <span><strong>The quick check happens on your device.</strong> Heavy mode adds visual, motion, and
+              audio checks when the video itself is available.</span>
             </div>
             <dl class="verdict-guide" aria-label="Orislop verdict definitions">
               <div><dt>Don't skip</dt><dd>Useful, original, ordinary, or uncertain content stays visible.</dd></div>
               <div><dt>Skip</dt><dd>Strong slop or synthetic-media evidence removes the item before view.</dd></div>
             </dl>
           </div>
-          <div class="hero__product" aria-label="Orislop clean feed product preview">
+          <div class="hero__product is-revealed" aria-label="Orislop clean feed product preview" data-reveal="hero-product">
+            <span class="hero__product-glow" aria-hidden="true"></span>
             <div class="product-chrome">
-              <span></span>
-              <span></span>
-              <span></span>
-              <strong>orislop.com</strong>
+              <div class="product-chrome__controls" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="product-chrome__address"><i aria-hidden="true"></i><strong>orislop.com / shield</strong></div>
+              <span class="product-chrome__privacy">Private</span>
             </div>
             <div class="product-visual">
+              <span class="product-scan-beam" aria-hidden="true"></span>
               <div class="product-visual__header">
-                <span>Live clean-feed protection</span>
-                <strong>Scanning ahead</strong>
+                <div><small>ORISLOP SHIELD</small><span>Checking the next few videos</span></div>
+                <strong><i aria-hidden="true"></i>On</strong>
               </div>
-              <div class="product-feed-row product-feed-row--watch">
-                <div class="product-thumb product-thumb--green"></div>
-                <div>
-                  <strong>Useful repair walkthrough</strong>
-                  <span>Don't skip · useful and original</span>
-                </div>
+              <div class="product-summary-strip">
+                <div><strong>18</strong><span>checked</span></div>
+                <div><strong>03</strong><span>moved aside</span></div>
+                <div><strong>15</strong><span>left alone</span></div>
               </div>
-              <div class="product-feed-row product-feed-row--hidden">
-                <div class="product-thumb product-thumb--red"></div>
-                <div>
-                  <strong>AI voice viral clips compilation</strong>
-                  <span>Hidden - repeated AI/repost signals</span>
-                </div>
+              <div class="product-feed-row product-feed-row--watch" style="--row-index: 0">
+                <div class="product-thumb product-thumb--green"><span>24</span></div>
+                <div><strong>Useful repair walkthrough</strong><span>Clear steps and original footage</span></div>
+                <b class="product-verdict product-verdict--keep">Keep</b>
               </div>
-              <div class="product-feed-row product-feed-row--watch">
-                <div class="product-thumb product-thumb--green"></div>
-                <div>
-                  <strong>Historian explains archival photos</strong>
-                  <span>Don't skip · educational context</span>
-                </div>
+              <div class="product-feed-row product-feed-row--hidden" style="--row-index: 1">
+                <div class="product-thumb product-thumb--red"><span>96</span></div>
+                <div><strong>AI voice clips compilation</strong><span>Repeated narration and repost signals</span></div>
+                <b class="product-verdict product-verdict--skip">Skip</b>
+              </div>
+              <div class="product-feed-row product-feed-row--watch" style="--row-index: 2">
+                <div class="product-thumb product-thumb--green"><span>11</span></div>
+                <div><strong>Historian explains archival photos</strong><span>Useful educational context</span></div>
+                <b class="product-verdict product-verdict--keep">Keep</b>
               </div>
               <div class="product-log-strip">
-                <span>Flagged log</span>
+                <span><i aria-hidden="true"></i>Context, visuals, motion, and audio</span>
                 <strong>Saved locally</strong>
               </div>
             </div>
+            <span class="product-float-card product-float-card--privacy"><i aria-hidden="true"></i><b>Local first</b><small>Nothing sent by default</small></span>
+            <span class="product-float-card product-float-card--signal"><b>4 checks agree</b><small>Reason shown before hiding</small></span>
           </div>
         </section>
 
-        <section class="download-section panel" id="extension-download">
+        <section class="trust-rail" aria-label="What Orislop does" data-reveal="trust-rail">
+          <div><strong>04</strong><span>Feed platforms</span></div>
+          <div><strong>Local</strong><span>Quick check first</span></div>
+          <div><strong>Heavy</strong><span>Video analysis when needed</span></div>
+          <div><strong>Undo</strong><span>You stay in control</span></div>
+        </section>
+
+        <section class="download-section panel" id="extension-download" data-reveal="download">
           <div class="download-copy">
-            <p class="eyebrow">One click, cleaner feeds</p>
+            <p class="eyebrow">The browser extension</p>
             <h2>Protection that stays out of your way.</h2>
             <p>
-              The browser extension protects YouTube, Instagram Reels, TikTok, and LinkedIn directly. It scans
-              ahead without scrolling, removes Skip-rated short-form items, annotates LinkedIn posts and profiles,
-              and keeps a private activity history in your browser.
+              Install it once, choose what you do not want to see, and keep browsing normally. Orislop works on
+              YouTube, Instagram Reels, TikTok, and LinkedIn. It never scrolls the page for you.
             </p>
             <dl class="definition-list">
               <div>
                 <dt>Slop</dt>
-                <dd>Low-value videos that look repetitive, spammy, reposted, or engagement-bait heavy.</dd>
+                <dd>Low-value videos that look repetitive, spammy, reposted, or bait-heavy.</dd>
               </div>
               <div>
                 <dt>Don't skip</dt>
@@ -235,7 +255,7 @@ export function mountApp(root: HTMLElement): void {
               </div>
               <div>
                 <dt>Skip</dt>
-                <dd>Strong local slop or synthetic-media evidence hides the item without auto-scrolling.</dd>
+                <dd>A strong match moves the item aside. You can reveal it and correct the decision.</dd>
               </div>
               <div>
                 <dt>LinkedIn trust</dt>
@@ -244,10 +264,15 @@ export function mountApp(root: HTMLElement): void {
             </dl>
           </div>
           <div class="download-card">
+            <div class="download-card__top">
+              <span class="download-card__mark" aria-hidden="true">${renderBrandMark("brand-symbol--download")}</span>
+              <span><small>Browser extension</small><strong>Orislop Shield</strong></span>
+              <b>v1.3</b>
+            </div>
             <a class="download-button" href="./downloads/orislop-browser-extension.zip" download>
-              Get the Chrome-ready package
+              Download the private beta
             </a>
-            <p class="download-card__availability">Chrome Web Store release is being reviewed. This verified package is available for private testing now.</p>
+            <p class="download-card__availability">The Chrome Web Store listing is under review. The same tested build is available here for private testing.</p>
             <ol class="install-list">
               <li>Unzip the download.</li>
               <li>Open <code>chrome://extensions</code> or <code>edge://extensions</code>.</li>
@@ -255,26 +280,56 @@ export function mountApp(root: HTMLElement): void {
               <li>Choose Load unpacked and select the unzipped folder.</li>
             </ol>
             <p class="prototype-note">
-              Private testing requires Developer mode while the store listing is reviewed. Local mode keeps model
-              inference on your device. Optional cloud mode uses the protected Orislop service for deeper checks.
+              Developer mode is only needed during the private beta. Local mode keeps the first check on your
+              device. Heavy mode can use the Orislop service for a closer look.
             </p>
+            <div class="download-card__footer"><span>Manifest V3</span><span>Local-first</span><span>Clear controls</span></div>
           </div>
         </section>
 
-        <section class="how-grid" id="how-it-works" aria-labelledby="howHeading">
+        <section class="how-grid" id="how-it-works" aria-labelledby="howHeading" data-reveal="how">
           <div class="section-heading">
             <p class="eyebrow">How it works</p>
-            <h2 id="howHeading">Quietly useful from the first scroll.</h2>
-            <p>Orislop looks ahead, asks for deeper analysis only when it helps, and leaves uncertain content visible.</p>
+            <h2 id="howHeading">It watches the feed, not you.</h2>
+            <p>Orislop checks a small group of upcoming posts. It acts only when the reason is strong. Everything else stays put.</p>
           </div>
           <div class="how-grid__cards">
-            <article class="how-card"><span>01</span><h3>Reads the feed</h3><p>Understands titles, captions, transcripts, creators, and patterns before content takes your attention.</p></article>
-            <article class="how-card"><span>02</span><h3>Checks what matters</h3><p>Escalates uncertain items to visual, temporal, audio, and context models instead of running every model blindly.</p></article>
-            <article class="how-card"><span>03</span><h3>Explains the decision</h3><p>Useful and uncertain posts remain. Strong low-value signals are hidden with a plain-language reason and an undo path.</p></article>
+            <article class="how-card" data-reveal="how-1"><span>01</span><h3>Looks a little ahead</h3><p>Checks the next few items without scrolling, clicking, or changing where you are.</p></article>
+            <article class="how-card" data-reveal="how-2"><span>02</span><h3>Takes a closer look</h3><p>Uses the heavier video checks only when the quick result is not enough.</p></article>
+            <article class="how-card" data-reveal="how-3"><span>03</span><h3>Leaves the final say to you</h3><p>Shows the reason, keeps uncertain posts visible, and gives you a simple undo.</p></article>
           </div>
         </section>
 
-        <section id="analyzer" class="section-grid">
+        <section class="intelligence-stage" id="intelligence" aria-labelledby="intelligenceHeading" data-reveal="intelligence">
+          <div class="intelligence-stage__copy">
+            <p class="eyebrow">What happens in Heavy mode</p>
+            <h2 id="intelligenceHeading">One answer. Several independent checks.</h2>
+            <p>
+              A title can lie. One frame can be misleading. Orislop compares the words, the pictures, the motion,
+              the voice, and available sources before it makes a strong call.
+            </p>
+            <p class="intelligence-stage__note">You do not need to understand the machinery. You still get the reason.</p>
+          </div>
+          <div class="signal-map" aria-label="Orislop checks context, frames, motion, audio, and sources">
+            <span class="signal-map__line signal-map__line--one" aria-hidden="true"></span>
+            <span class="signal-map__line signal-map__line--two" aria-hidden="true"></span>
+            <span class="signal-map__line signal-map__line--three" aria-hidden="true"></span>
+            <span class="signal-map__line signal-map__line--four" aria-hidden="true"></span>
+            <span class="signal-map__line signal-map__line--five" aria-hidden="true"></span>
+            <div class="signal-map__core">
+              <span>${renderBrandMark("brand-symbol--core")}</span>
+              <strong>Clear decision</strong>
+              <small>with a reason</small>
+            </div>
+            <div class="signal-node signal-node--context"><i>01</i><strong>Words and context</strong><span>What the post is saying</span></div>
+            <div class="signal-node signal-node--frames"><i>02</i><strong>Individual frames</strong><span>What the video looks like</span></div>
+            <div class="signal-node signal-node--motion"><i>03</i><strong>Motion over time</strong><span>How the video behaves</span></div>
+            <div class="signal-node signal-node--audio"><i>04</i><strong>Voice and lip sync</strong><span>Whether sound and face agree</span></div>
+            <div class="signal-node signal-node--sources"><i>05</i><strong>Source checks</strong><span>What reliable pages report</span></div>
+          </div>
+        </section>
+
+        <section id="analyzer" class="section-grid" data-reveal="analyzer">
           <div class="panel analyzer-panel">
             <div class="panel__header">
               <div>
@@ -330,19 +385,19 @@ export function mountApp(root: HTMLElement): void {
                 </label>
               </div>
             </details>
-            <button class="primary-button" id="analyzeButton" type="button" ${analyzerDisabled || cloudAnalyzing ? "disabled" : ""}>${cloudAnalyzing ? "Checking with Orislop AI..." : "Analyze with Orislop AI"}</button>
+            <button class="primary-button" id="analyzeButton" type="button" ${analyzerDisabled || cloudAnalyzing ? "disabled" : ""}>${cloudAnalyzing ? "Checking the video..." : "Check this video"}</button>
             <p id="analyzerError" class="form-error" hidden></p>
 
             <div class="analyzer-assurance" role="note">
-              <span><strong>Instant answer</strong>The first check runs on your device</span>
-              <span><strong>Live second opinion</strong>Context AI joins when available</span>
-              <span><strong>Clear reasons</strong>No unexplained score or hidden failure</span>
+              <span><strong>Quick result</strong>The first check runs on your device</span>
+              <span><strong>Closer look</strong>The live service joins when available</span>
+              <span><strong>Clear reasons</strong>You can inspect what affected the result</span>
             </div>
           </div>
 
           <div class="panel preview-panel">
             <p class="eyebrow">Preview</p>
-            <h2>Official YouTube embed</h2>
+            <h2>Video preview</h2>
             <div id="previewHost"></div>
             <dl class="parse-grid">
               <div><dt>Video ID</dt><dd id="videoIdValue"></dd></div>
@@ -352,7 +407,7 @@ export function mountApp(root: HTMLElement): void {
               <i aria-hidden="true"></i>
               <div>
                 <strong>Instant protection is ready</strong>
-                <span>Runs privately in this tab while live context AI adds a second opinion when available.</span>
+                <span>Runs privately in this tab. A live second check joins when available.</span>
               </div>
             </div>
           </div>
@@ -360,12 +415,12 @@ export function mountApp(root: HTMLElement): void {
           <section id="scoreHost"></section>
         </section>
 
-        <section id="clean-feed" class="feed-layout">
+        <section id="clean-feed" class="feed-layout" data-reveal="clean-feed">
           <div class="panel feed-panel">
             <div class="panel__header">
               <div>
-                <p class="eyebrow">Decision lab</p>
-                <h2>Scan the next 10 videos before they reach your attention</h2>
+                <p class="eyebrow">Try a sample feed</p>
+                <h2>See what Orislop would keep</h2>
               </div>
               <label class="toggle-field">
                 <input id="showHiddenToggle" type="checkbox" />
@@ -373,9 +428,8 @@ export function mountApp(root: HTMLElement): void {
               </label>
             </div>
             <p>
-              Paste one candidate per line using: URL | title | caption. Or use the sample queue below.
-              Orislop checks the next ${FEED_SCAN_LIMIT}, keeps useful videos visible, and hides Skip items
-              inside this decision lab. Expand "Show hidden" to inspect every rule that triggered.
+              Use the sample list or paste your own rows as URL | title | caption. Orislop checks the first
+              ${FEED_SCAN_LIMIT}. Turn on Show hidden to inspect what moved and why.
             </p>
             <details class="queue-editor">
               <summary>Edit the 10-video sample queue</summary>
@@ -398,10 +452,10 @@ export function mountApp(root: HTMLElement): void {
           </aside>
         </section>
 
-        <section class="faq-section" aria-labelledby="faqHeading">
+        <section class="faq-section" aria-labelledby="faqHeading" data-reveal="faq">
           <div class="section-heading">
             <p class="eyebrow">Good to know</p>
-            <h2 id="faqHeading">Built to help—not take over.</h2>
+            <h2 id="faqHeading">Built to help. Not take over.</h2>
           </div>
           <div class="faq-list">
             <details><summary>What happens when Orislop is unsure?</summary><p>The item stays visible. Orislop is intentionally conservative, and every hidden item has a reveal or undo path.</p></details>
@@ -410,26 +464,26 @@ export function mountApp(root: HTMLElement): void {
           </div>
         </section>
 
-        <section class="info-grid">
-          <article class="panel">
-            <p class="eyebrow">Deep protection</p>
-            <h2>More than a title checker</h2>
+        <section class="info-grid" data-reveal="details">
+          <article class="panel" data-reveal="details-heavy">
+            <p class="eyebrow">When a quick check is not enough</p>
+            <h2>It can look at the actual video</h2>
             <p>
-              The extension can analyze behavior over time—not just title text or one thumbnail. It compares
-              frame sequences, pacing, motion, audio alignment, and visual artifacts when a deeper check is useful.
+              Heavy mode looks beyond the title and thumbnail. It compares frame sequences, pacing, motion,
+              audio alignment, and visual artifacts when a closer check is useful.
             </p>
             <p>
-              The web demo gives an instant local result and can ask the live context service for a second opinion.
-              Full media analysis happens through the extension, where the actual video can be safely inspected.
+              This page gives you a quick local result. Full video analysis happens through the extension, where
+              Orislop can safely inspect the available media.
             </p>
           </article>
 
-          <article class="panel">
-            <p class="eyebrow">Local frame lab</p>
-            <h2>Browser-only motion and repetition analysis</h2>
+          <article class="panel" data-reveal="details-local">
+            <p class="eyebrow">Try a file from your computer</p>
+            <h2>A small motion check that stays here</h2>
             <p>
-              Optional local upload mode samples frames with a browser video element and canvas. It
-              estimates visual repetition, frame change intensity, and pacing. This is not the full ML model.
+              Choose a video and this page will sample a few frames in your browser. It estimates repetition,
+              frame changes, and pacing. The file never leaves this tab.
             </p>
             <label class="file-drop">
               <span>Choose local video</span>
@@ -443,12 +497,12 @@ export function mountApp(root: HTMLElement): void {
             <div id="localVideoResultHost"></div>
           </article>
 
-          <article class="panel" id="privacy">
+          <article class="panel" id="privacy" data-reveal="details-privacy">
             <p class="eyebrow">Privacy</p>
-            <h2>Privacy and inference policy</h2>
+            <h2>Clear boundaries by default</h2>
             <p>
-              Instant analysis runs locally in your browser. No account is required. When live context AI is
-              available, only the YouTube link and text you entered are sent for that second opinion—never a local file.
+              Instant analysis runs locally in your browser. No account is required. When the live service is
+              available, only the YouTube link and text you entered are sent for that second opinion. A local file is never sent.
               Feedback, settings, and decision-lab logs stay in local browser storage on your device.
             </p>
             <ul class="privacy-list">
@@ -460,12 +514,28 @@ export function mountApp(root: HTMLElement): void {
           </article>
         </section>
 
-        <footer class="footer">
-          <span>Built by Aarush Shah</span>
-          <a href="./privacy.html">Privacy policy</a>
-          <a href="https://github.com/coolguy860/orislop/issues" target="_blank" rel="noreferrer">Support</a>
-          <span>${WEB_RELEASE_LABEL} · Built for clear, calm control</span>
-          <span id="feedbackCount"></span>
+        <footer class="footer" data-reveal="footer">
+          <div class="footer__brand">
+            <span aria-hidden="true">${renderBrandMark("brand-symbol--footer")}</span>
+            <div><strong>ORISLOP</strong><p>A calmer feed, built by Aarush Shah.</p></div>
+          </div>
+          <div class="footer__links">
+            <span>Product</span>
+            <a href="#how-it-works">How it works</a>
+            <a href="#analyzer">Try the analyzer</a>
+            <a href="#extension-download">Get the extension</a>
+          </div>
+          <div class="footer__links">
+            <span>Company</span>
+            <a href="./privacy.html">Privacy policy</a>
+            <a href="https://github.com/coolguy860/orislop" target="_blank" rel="noreferrer">Open source</a>
+            <a href="https://github.com/coolguy860/orislop/issues" target="_blank" rel="noreferrer">Support</a>
+          </div>
+          <div class="footer__meta">
+            <span><i aria-hidden="true"></i>${WEB_RELEASE_LABEL}</span>
+            <span id="feedbackCount"></span>
+            <a href="#top">Back to top</a>
+          </div>
         </footer>
       </main>
     `;
@@ -478,6 +548,8 @@ export function mountApp(root: HTMLElement): void {
     renderFlaggedLog();
     renderLocalVideoResult();
     setText("feedbackCount", `Saved feedback: ${feedback.length}`);
+    enhanceExperience();
+    restoreInitialAnchor();
   }
 
   function bindForm(): void {
@@ -645,7 +717,7 @@ export function mountApp(root: HTMLElement): void {
     }
     const disabled = Boolean(messageForInvalidUrl(form.url)) || cloudAnalyzing;
     button.disabled = disabled;
-    button.textContent = cloudAnalyzing ? "Checking with Orislop AI..." : "Analyze with Orislop AI";
+    button.textContent = cloudAnalyzing ? "Checking the video..." : "Check this video";
     button.title = cloudAnalyzing
       ? "Orislop is checking the context"
       : disabled ? "Enter a valid YouTube URL first" : "Analyze this YouTube item";
@@ -856,19 +928,19 @@ export function mountApp(root: HTMLElement): void {
     const detail = document.createElement("p");
     if (cloudAnalyzing) {
       card.classList.add("cloud-insight--loading");
-      heading.textContent = "Live context AI is taking a second look";
-      detail.textContent = "Your instant result is already above. This usually finishes in a few seconds.";
+      heading.textContent = "Taking a closer look";
+      detail.textContent = "The quick result is already above. This usually takes a few seconds.";
     } else if (cloudResult?.available && cloudResult.verdict) {
       card.classList.add(cloudResult.verdict === "skip" ? "cloud-insight--skip" : "cloud-insight--safe");
       const agrees = cloudResult.verdict === "skip" ? result?.recommendation === "skip" : result?.recommendation !== "skip";
-      heading.textContent = `${agrees ? "Live AI agrees" : "Live AI sees this differently"}: ${cloudResult.verdict === "skip" ? "Skip" : "Don't skip"}`;
+      heading.textContent = `${agrees ? "The closer check agrees" : "The closer check sees this differently"}: ${cloudResult.verdict === "skip" ? "Skip" : "Don't skip"}`;
       const confidence = cloudResult.confidence === null ? "" : ` · ${Math.round(cloudResult.confidence * 100)}% confidence`;
       const category = cloudResult.category ? ` · ${humanizeCategory(cloudResult.category)}` : "";
       detail.textContent = `${cloudResult.reason}${confidence}${category}`;
     } else {
       card.classList.add("cloud-insight--offline");
-      heading.textContent = "Instant check complete";
-      detail.textContent = cloudError || "The live AI second opinion is optional. Your result above was completed privately on this device.";
+      heading.textContent = "Quick check complete";
+      detail.textContent = cloudError || "The live second check is optional. The result above was completed privately on this device.";
     }
     copy.append(heading, detail);
     card.append(icon, copy);
@@ -1166,6 +1238,70 @@ export function mountApp(root: HTMLElement): void {
     }
   }
 
+  function enhanceExperience(): void {
+    const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const revealTargets = [...root.querySelectorAll<HTMLElement>("[data-reveal]")];
+    revealObserver?.disconnect();
+
+    if (prefersReducedMotion || typeof IntersectionObserver === "undefined") {
+      for (const target of revealTargets) target.classList.add("is-revealed");
+    } else {
+      revealObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const target = entry.target as HTMLElement;
+          const key = target.dataset.reveal ?? "section";
+          revealedBlocks.add(key);
+          target.classList.add("is-revealed");
+          revealObserver?.unobserve(target);
+        }
+      }, { threshold: 0.14, rootMargin: "0px 0px -8%" });
+
+      for (const target of revealTargets) {
+        const key = target.dataset.reveal ?? "section";
+        if (revealedBlocks.has(key)) target.classList.add("is-revealed");
+        else revealObserver.observe(target);
+      }
+    }
+
+    if (!experienceWired) {
+      experienceWired = true;
+      window.addEventListener("scroll", scheduleViewportEffects, { passive: true });
+      window.addEventListener("resize", scheduleViewportEffects, { passive: true });
+      window.addEventListener("pointermove", (event) => {
+        document.documentElement.style.setProperty("--pointer-x", `${event.clientX}px`);
+        document.documentElement.style.setProperty("--pointer-y", `${event.clientY}px`);
+      }, { passive: true });
+      window.setTimeout(() => {
+        for (const target of root.querySelectorAll<HTMLElement>("[data-reveal]")) {
+          target.classList.add("is-revealed");
+        }
+      }, 2400);
+    }
+    scheduleViewportEffects();
+  }
+
+  function scheduleViewportEffects(): void {
+    if (viewportFrame) return;
+    viewportFrame = window.requestAnimationFrame(() => {
+      viewportFrame = 0;
+      const maximum = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      const progress = Math.min(1, Math.max(0, window.scrollY / maximum));
+      const progressBar = root.querySelector<HTMLElement>(".page-progress span");
+      progressBar?.style.setProperty("transform", `scaleX(${progress})`);
+      root.querySelector(".site-nav")?.classList.toggle("is-scrolled", window.scrollY > 20);
+    });
+  }
+
+  function restoreInitialAnchor(): void {
+    if (initialHashHandled || !window.location.hash) return;
+    initialHashHandled = true;
+    const targetId = decodeURIComponent(window.location.hash.slice(1));
+    window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ block: "start" });
+    });
+  }
+
   function setText(id: string, value: string): void {
     getElement<HTMLElement>(id).textContent = value;
   }
@@ -1197,13 +1333,13 @@ function capitalize(value: string): string {
 function cloudStatusLabel(status: CloudAiStatus): string {
   switch (status) {
     case "online":
-      return "Live AI online";
+      return "Live check online";
     case "offline":
-      return "Instant protection ready";
+      return "Quick check ready";
     case "not_configured":
-      return "Instant protection ready";
+      return "Quick check ready";
     default:
-      return "Checking live AI";
+      return "Checking service";
   }
 }
 
