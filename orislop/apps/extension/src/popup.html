@@ -69,6 +69,21 @@
         </div>
       </section>
 
+      <section id="attentionLogCard" class="attention-log" aria-labelledby="attentionLogTitle" hidden>
+        <span class="attention-log__mark" aria-hidden="true">?</span>
+        <span class="attention-log__copy">
+          <small>Optional check-in</small>
+          <strong id="attentionLogTitle">Did Orislop improve this feed session?</strong>
+          <span>One tap. No titles, URLs, captions, or browsing history are attached.</span>
+        </span>
+        <div class="attention-log__actions" aria-label="Session satisfaction">
+          <button type="button" data-attention-response="better">Better</button>
+          <button type="button" data-attention-response="same">Same</button>
+          <button type="button" data-attention-response="worse">Worse</button>
+          <button type="button" data-attention-response="dismissed" aria-label="Dismiss this check-in">Not now</button>
+        </div>
+      </section>
+
       <section class="engine-grid" aria-label="Protection engines">
         <article class="engine-card" id="languageEngineCard" data-state="checking">
           <div class="engine-icon language-icon" aria-hidden="true">Aa</div>
@@ -171,6 +186,22 @@
             </select>
           </label>
           <small id="performanceNote" class="performance-note" role="status" aria-live="polite"></small>
+          <section class="privacy-controls" aria-labelledby="privacyControlsTitle">
+            <div class="privacy-controls__heading">
+              <strong id="privacyControlsTitle">Help improve Orislop</strong>
+              <small>Off by default. Your feed content stays private.</small>
+            </div>
+            <label class="privacy-choice">
+              <span><strong>Share anonymous product insights</strong><small>Shares coarse outcomes, speed buckets, model versions, and corrections. Never URLs, titles, captions, page text, media, or account details.</small></span>
+              <input id="productAnalyticsToggle" type="checkbox" role="switch" aria-label="Share anonymous product insights" aria-checked="false" />
+            </label>
+            <label class="privacy-choice">
+              <span><strong>Attention Log</strong><small>Occasionally asks whether a meaningful feed session felt better. Responses only upload when anonymous insights are on.</small></span>
+              <input id="attentionLogToggle" type="checkbox" role="switch" aria-label="Enable optional Attention Log" aria-checked="false" />
+            </label>
+            <small id="telemetryStatus" class="privacy-status" role="status" aria-live="polite">No product insights are being shared.</small>
+            <button id="sendTelemetryNowButton" class="secondary-button" type="button" hidden>Send queued insights now</button>
+          </section>
           <div id="cloudSettings" class="cloud-settings" hidden>
             <label class="model-field" for="cloudApiUrl"><span>Cloud API URL</span><input id="cloudApiUrl" type="url" value="https://api.orislop.com" spellcheck="false" /></label>
             <section id="cloudDisclosure" class="cloud-disclosure">
@@ -240,6 +271,7 @@
     </main>
     <script src="oauthConfig.generated.js"></script>
     <script src="slopPreferences.js"></script>
+    <script src="productTelemetry.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

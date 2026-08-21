@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 import unittest
@@ -207,6 +208,62 @@ class CloudBetaAuthTests(unittest.TestCase):
         for _ in range(5):
             wrong_guard.record_hide_feedback(revealed=True, confirmed_wrong=True)
         self.assertTrue(wrong_guard.state()["forcedShadow"])
+
+    def test_product_events_are_validated_pseudonymized_bounded_and_idempotent(self) -> None:
+        controller = CloudBetaController(self.store, "product-content-secret")
+        event = {
+            "schemaVersion": 1,
+            "eventId": "event_1234567890abcdef",
+            "eventName": "scan_batch_completed",
+            "occurredAt": datetime.now(tz=timezone.utc).isoformat(),
+            "installationId": "install_1234567890abcdef",
+            "sessionId": "session_1234567890abcdef",
+            "extensionVersion": "1.3.0",
+            "attributes": {
+                "platform": "youtube",
+                "inferenceMode": "hybrid",
+                "performanceMode": "heavy",
+                "outcome": "complete",
+                "durationBucket": "1s_5s",
+                "batchSize": 10,
+                "modelIds": ["gonnerthetooner/orislop-fusion"],
+            },
+        }
+        first = controller.product_events({"schemaVersion": 1, "events": [event]})
+        second = controller.product_events({"schemaVersion": 1, "events": [event]})
+        self.assertEqual(first["accepted"], 1)
+        self.assertEqual(second["duplicate"], 1)
+        persisted = self.store.product_events[event["eventId"]]
+        self.assertNotIn("installationId", persisted)
+        self.assertNotIn("sessionId", persisted)
+        self.assertNotIn(event["installationId"], json_text(persisted))
+        self.assertEqual(len(persisted["installationHash"]), 64)
+        self.assertEqual(len(persisted["sessionHash"]), 64)
+        self.assertEqual(controller.delete_product_events(event["installationId"]), 1)
+        self.assertEqual(self.store.product_events, {})
+
+    def test_product_events_reject_private_or_mixed_identity_fields(self) -> None:
+        controller = CloudBetaController(self.store, "product-content-secret")
+        base = {
+            "schemaVersion": 1,
+            "eventId": "event_1234567890abcdef",
+            "eventName": "decision_presented",
+            "occurredAt": datetime.now(tz=timezone.utc).isoformat(),
+            "installationId": "install_1234567890abcdef",
+            "sessionId": "session_1234567890abcdef",
+            "extensionVersion": "1.3.0",
+            "attributes": {"platform": "youtube", "verdict": "skip"},
+        }
+        with self.assertRaises(ValueError):
+            controller.product_events({
+                "schemaVersion": 1,
+                "events": [{**base, "attributes": {**base["attributes"], "url": "https://private.example"}}],
+            })
+        with self.assertRaises(ValueError):
+            controller.product_events({
+                "schemaVersion": 1,
+                "events": [base, {**base, "eventId": "event_abcdef1234567890", "installationId": "install_abcdef1234567890"}],
+            })
 
 
 def json_text(value) -> str:

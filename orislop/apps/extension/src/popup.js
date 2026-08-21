@@ -5,6 +5,10 @@ const OLLAMA_STATUS_KEY = "orislop.extension.ollamaStatus";
 const DETECTOR_STATUS_KEY = "orislop.extension.detectorStatus";
 const FACT_CHECK_STATUS_KEY = "orislop.extension.factCheckStatus";
 const SCAN_STATUS_KEY = "orislop.extension.scanStatus";
+const TELEMETRY_QUEUE_KEY = "orislop.productTelemetry.queueV1";
+const TELEMETRY_IDENTITY_KEY = "orislop.productTelemetry.installationV1";
+const TELEMETRY_STATUS_KEY = "orislop.productTelemetry.statusV1";
+const ATTENTION_STATE_KEY = "orislop.productTelemetry.attentionV1";
 const SLOP_PREFERENCE_API = globalThis.OrislopSlopPreferences;
 const DEFAULT_SLOP_PREFERENCES = SLOP_PREFERENCE_API?.defaultIds || [];
 const FILTER_BOT_PRESETS = Object.freeze({
@@ -41,6 +45,8 @@ const DEFAULT_SETTINGS = {
   inferenceMode: "local",
   performanceMode: "heavy",
   cloudApiUrl: "https://api.orislop.com",
+  productAnalyticsEnabled: false,
+  attentionLogEnabled: false,
   watchIntentComplete: false,
   slopPreferences: [...DEFAULT_SLOP_PREFERENCES]
 };
@@ -68,20 +74,24 @@ async function boot() {
 }
 
 async function render() {
-  const [flagged, skipped, settings, ollamaStatus, detectorStatus, factCheckStatus, scanStatus] = await Promise.all([
+  const [flagged, skipped, settings, ollamaStatus, detectorStatus, factCheckStatus, scanStatus, telemetryStatus] = await Promise.all([
     readList(FLAGGED_KEY),
     readList(SKIPPED_KEY),
     readSettings(),
     storage.get(OLLAMA_STATUS_KEY),
     storage.get(DETECTOR_STATUS_KEY),
     storage.get(FACT_CHECK_STATUS_KEY),
-    storage.get(SCAN_STATUS_KEY)
+    storage.get(SCAN_STATUS_KEY),
+    readTelemetryStatus()
   ]);
   document.getElementById("flaggedCount").textContent = compactNumber(flagged.length);
   document.getElementById("skippedCount").textContent = compactNumber(skipped.length);
   document.getElementById("minutesSaved").textContent = formatSavedTime(calculateSavedSeconds(skipped));
   setToggle("protectionToggle", settings.enabled);
   setToggle("hideSkippedToggle", settings.hideSkipped);
+  setToggle("productAnalyticsToggle", settings.productAnalyticsEnabled);
+  setToggle("attentionLogToggle", settings.attentionLogEnabled);
+  renderProductPrivacy(settings, telemetryStatus);
   renderWatchIntent(settings);
   document.getElementById("ollamaModel").value = settings.ollamaModel;
   const inferenceMode = document.getElementById("inferenceMode");
@@ -659,6 +669,38 @@ document.getElementById("hideSkippedToggle").addEventListener("change", async (e
   await render();
 });
 
+document.getElementById("productAnalyticsToggle").addEventListener("change", async (event) => {
+  const enabled = event.target.checked === true;
+  const settings = await readSettings();
+  await saveSettings({ ...settings, productAnalyticsEnabled: enabled });
+  await sendMessage({ type: "orislop.telemetryPrivacyUpdate", enabled });
+  setStatus(enabled ? "Anonymous product insights are on. Feed content is never included." : "Anonymous product insights are off and local telemetry was cleared.");
+  await render();
+});
+
+document.getElementById("attentionLogToggle").addEventListener("change", async (event) => {
+  const settings = await readSettings();
+  await saveSettings({ ...settings, attentionLogEnabled: event.target.checked === true });
+  setStatus(event.target.checked ? "Optional session check-ins are on." : "Optional session check-ins are off.");
+  await render();
+});
+
+document.getElementById("sendTelemetryNowButton").addEventListener("click", async () => {
+  setStatus("Sending queued product insights...");
+  const result = await sendMessage({ type: "orislop.telemetryFlush" });
+  setStatus(result?.ok ? "Queued product insights sent." : "Could not send them yet. Orislop will retry later.");
+  await render();
+});
+
+for (const button of document.querySelectorAll("[data-attention-response]")) {
+  button.addEventListener("click", async () => {
+    const response = button.dataset.attentionResponse;
+    const result = await sendMessage({ type: "orislop.attentionResponse", response });
+    document.getElementById("attentionLogCard").hidden = true;
+    setStatus(result?.saved ? "Thanks. That check-in was saved without feed content." : "Check-in dismissed.");
+  });
+}
+
 document.getElementById("selectAllSlopButton").addEventListener("click", () => {
   for (const input of document.querySelectorAll('#slopPreferenceGrid input[type="checkbox"]')) input.checked = true;
   previewWatchIntentCount();
@@ -858,7 +900,8 @@ document.getElementById("clearAllDataButton").addEventListener("click", () => re
 document.getElementById("cancelClearButton").addEventListener("click", closeClear);
 document.getElementById("confirmClearButton").addEventListener("click", async () => {
   const action = pendingClear;
-  await storage.remove(action === "all" ? [FLAGGED_KEY, SKIPPED_KEY, SETTINGS_KEY, OLLAMA_STATUS_KEY, DETECTOR_STATUS_KEY, FACT_CHECK_STATUS_KEY, SCAN_STATUS_KEY] : [SKIPPED_KEY]);
+  if (action === "all") await sendMessage({ type: "orislop.telemetryPrivacyUpdate", enabled: false });
+  await storage.remove(action === "all" ? [FLAGGED_KEY, SKIPPED_KEY, SETTINGS_KEY, OLLAMA_STATUS_KEY, DETECTOR_STATUS_KEY, FACT_CHECK_STATUS_KEY, SCAN_STATUS_KEY, TELEMETRY_QUEUE_KEY, TELEMETRY_IDENTITY_KEY, TELEMETRY_STATUS_KEY, ATTENTION_STATE_KEY] : [SKIPPED_KEY]);
   runtimeHealth = null;
   closeClear();
   setStatus(action === "all" ? "Local Orislop data cleared." : "Protected activity cleared.");
@@ -897,8 +940,10 @@ function normalizeSettings(value) {
     hideSkipped: typeof value.hideSkipped === "boolean" ? value.hideSkipped : typeof value.hideFeedCards === "boolean" ? value.hideFeedCards : DEFAULT_SETTINGS.hideSkipped,
     ollamaModel: /^[a-zA-Z0-9._:/-]{1,100}$/.test(String(value.ollamaModel || "")) ? String(value.ollamaModel) : DEFAULT_SETTINGS.ollamaModel,
     inferenceMode: CLOUD_BETA_CONFIGURED && value.inferenceMode === "hybrid" ? "hybrid" : "local",
-    performanceMode: ["fast", "heavy"].includes(value.performanceMode) ? value.performanceMode : DEFAULT_SETTINGS.performanceMode,
+    performanceMode: ["auto", "fast", "heavy"].includes(value.performanceMode) ? value.performanceMode : DEFAULT_SETTINGS.performanceMode,
     cloudApiUrl: sanitizeCloudApiUrl(value.cloudApiUrl),
+    productAnalyticsEnabled: value.productAnalyticsEnabled === true,
+    attentionLogEnabled: value.attentionLogEnabled === true,
     watchIntentComplete: value.watchIntentComplete === true,
     slopPreferences: SLOP_PREFERENCE_API?.normalize(value.slopPreferences) || [...DEFAULT_SLOP_PREFERENCES]
   };
@@ -906,6 +951,28 @@ function normalizeSettings(value) {
 
 async function saveSettings(settings) {
   await storage.set({ [SETTINGS_KEY]: normalizeSettings(settings) });
+}
+
+async function readTelemetryStatus() {
+  if (!storage.isExtensionStorage) return { ok: true, enabled: false, queued: 0, attentionEligible: false };
+  return sendMessage({ type: "orislop.telemetryStatus" });
+}
+
+function renderProductPrivacy(settings, status) {
+  const queued = Math.max(0, Number(status?.queued) || 0);
+  const sent = Math.max(0, Number(status?.sent) || 0);
+  const host = document.getElementById("telemetryStatus");
+  if (!settings.productAnalyticsEnabled) {
+    host.textContent = "No product insights are being shared.";
+  } else if (status?.lastErrorCode) {
+    host.textContent = `${queued} anonymous insight${queued === 1 ? "" : "s"} waiting. Orislop will retry safely.`;
+  } else if (queued > 0) {
+    host.textContent = `${queued} anonymous insight${queued === 1 ? "" : "s"} queued; ${sent} delivered from this browser.`;
+  } else {
+    host.textContent = `Anonymous insights are on; ${sent} delivered from this browser.`;
+  }
+  document.getElementById("sendTelemetryNowButton").hidden = !settings.productAnalyticsEnabled || queued === 0;
+  document.getElementById("attentionLogCard").hidden = !(settings.attentionLogEnabled && status?.attentionEligible === true);
 }
 
 function setToggle(id, checked) {

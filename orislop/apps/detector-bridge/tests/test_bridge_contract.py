@@ -756,6 +756,21 @@ class BridgeContractTests(unittest.TestCase):
         self.assertFalse(limiter.allow("extension"))
         self.assertTrue(limiter.allow("different-extension"))
 
+    def test_layered_rate_limiter_enforces_burst_and_sustained_identity_limits(self) -> None:
+        limiter = server.LayeredRateLimiter(burst_limit=2, burst_seconds=10, sustained_limit=4)
+        self.assertTrue(limiter.check("extension-a")["allowed"])
+        self.assertTrue(limiter.check("extension-a")["allowed"])
+        rejected = limiter.check("extension-a")
+        self.assertFalse(rejected["allowed"])
+        self.assertGreaterEqual(rejected["retry_after"], 1)
+        self.assertTrue(limiter.check("extension-b")["allowed"])
+
+    def test_detector_cache_key_is_namespaced_by_runtime_schema(self) -> None:
+        key = server.detector_cache_key("item", "https://www.youtube.com/shorts/item", "fast")
+        with mock.patch.object(server, "DETECTOR_CACHE_SCHEMA_VERSION", "changed"):
+            changed = server.detector_cache_key("item", "https://www.youtube.com/shorts/item", "fast")
+        self.assertNotEqual(key, changed)
+
     def test_detector_polls_do_not_count_as_unseen_work(self) -> None:
         service = server.DetectorService(start_workers=False)
         candidates = [{

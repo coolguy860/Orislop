@@ -35,7 +35,7 @@ assert.ok(manifest.host_permissions.includes("http://127.0.0.1:4317/*"));
 assert.ok(!manifest.host_permissions.some((origin) => origin.includes(":11434")), "the extension must reach Ollama only through the origin-locked companion");
 assert.ok(manifest.host_permissions.includes("https://api.orislop.com/*"));
 assert.equal(manifest.optional_host_permissions, undefined);
-assert.deepEqual(manifest.content_scripts[0].js, ["slopPreferences.js", "aiClassifierModel.generated.js", "classifier.js", "platformAdapters.js", "controlCore.js", "contentScript.js"]);
+assert.deepEqual(manifest.content_scripts[0].js, ["slopPreferences.js", "productTelemetry.js", "aiClassifierModel.generated.js", "classifier.js", "platformAdapters.js", "controlCore.js", "contentScript.js"]);
 
 const slopPreferencesSource = read("slopPreferences.js");
 const generatedModel = read("aiClassifierModel.generated.js");

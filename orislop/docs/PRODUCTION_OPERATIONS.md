@@ -47,6 +47,7 @@ pnpm orislop:autostart:install
 - `GET /v2/me`: signed-in user, quota, and Cloud Heavy readiness
 - `POST /v2/analyze`, `GET /v2/analyze/{decisionId}`: submit/poll direct-media Cloud Heavy decisions
 - `POST /v2/feedback`: reversible-hide feedback and optional report-only diagnostic retention
+- `POST /v2/telemetry`, `DELETE /v2/telemetry`: opt-in privacy-safe product events and pseudonym-scoped deletion
 
 Normal request logging is disabled. Set `ORISLOP_DETECTOR_VERBOSE=1` only during diagnosis and avoid sharing logs without review.
 
@@ -68,6 +69,13 @@ Normal request logging is disabled. Set `ORISLOP_DETECTOR_VERBOSE=1` only during
 | `ORISLOP_CLOUD_HEAVY_ROLLOUT` | `shadow` | Cloud Heavy rollout request; calibration gates still override it |
 | `ORISLOP_CLOUD_BETA_AUTOMATIC_HIDES` | `0` | Explicit aggressive-beta enable after the beta calibration gate |
 | `ORISLOP_RATE_LIMIT_PER_MINUTE` | `120` | Analyze-request ceiling per origin |
+| `ORISLOP_RATE_LIMIT_BURST` | `20` | Per-identity burst ceiling inside the configured short window |
+| `ORISLOP_RATE_LIMIT_EXPLAIN_PER_MINUTE` | `20` | Stricter explanation ceiling |
+| `ORISLOP_RATE_LIMIT_WRITE_PER_MINUTE` | `30` | Feedback and telemetry write ceiling |
+| `ORISLOP_RATE_LIMIT_IP_PER_MINUTE` | `300` | Secondary abuse ceiling per source IP |
+| `ORISLOP_PRODUCT_TELEMETRY_ENABLED` | local `0`, cloud `1` | Product-event ingestion kill switch |
+| `ORISLOP_PRODUCT_EVENT_RETENTION_DAYS` | `30` | Validated product-event retention, clamped to 1-90 days |
+| `ORISLOP_DETECTOR_CACHE_SCHEMA_VERSION` | `v2` | Explicit cache namespace for release-safe invalidation |
 | `ORISLOP_RESULT_CACHE_TTL_SECONDS` | `21600` | In-memory decision lifetime |
 | `ORISLOP_DETECTOR_CACHE` | repo cache | Model cache location |
 | `ORISLOP_LIGHTWEIGHT_THRESHOLD` | `0.94` | Strict lightweight synthetic threshold |

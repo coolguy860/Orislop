@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import os from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const testRoot = path.dirname(fileURLToPath(import.meta.url));
+const profileRoot = path.resolve(testRoot, "..", "dist", ".runtime-profiles");
+mkdirSync(profileRoot, { recursive: true });
 const browsers = findBrowsers();
 
 {
@@ -82,7 +83,7 @@ function runFixture(name) {
   const fixture = path.join(testRoot, "fixtures", name);
   const failures = [];
   for (const browser of browsers) {
-    const profile = mkdtempSync(path.join(os.tmpdir(), "orislop-platform-dom-"));
+    const profile = mkdtempSync(path.join(profileRoot, "orislop-platform-dom-"));
     try {
       const output = execFileSync(browser, [
         "--headless=new",

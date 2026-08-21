@@ -41,6 +41,9 @@
 - Reversible user reveal/undo with immutable automatic decisions
 - No URLs or activity titles in copied diagnostics
 - Live scanner telemetry stores only platform, state, counts, errors, and timestamp; it does not duplicate captions, titles, or URLs
+- Product analytics is separately opt-in and schema-allowlisted; the client strips and server rejects URLs, titles, captions, transcripts, page text, identity, credentials, and arbitrary free-form attributes
+- Product-event installation and session identifiers are random pseudonyms, HMAC-hashed before persistence, retained for 30 days by default, and deletable by the originating installation
+- Inference, explanation, authentication, and write routes use endpoint-specific burst and sustained identity limits plus a secondary IP limit; 429 responses include `Retry-After`
 - No real secrets, tokens, checkpoints, temporary media, or build output committed to Git or copied into the cloud image context
 - SHA-256 release integrity manifest and byte-for-byte archive verification
 

@@ -12,6 +12,7 @@ const nodeSteps = [
   ["Web product", "apps/web/tests/runWebChecks.mjs"],
   ["AI classifier", "apps/web/tests/runAiClassifierChecks.mjs"],
   ["Extension", "apps/extension/tests/runExtensionChecks.mjs"],
+  ["Product telemetry and request policy", "apps/extension/tests/runProductTelemetryChecks.mjs"],
   ["Cross-platform 128-item launch corpus", "scripts/auditCrossPlatformLaunchCorpus.mjs"],
   ["Cross-platform DOM adapters", "apps/extension/tests/runPlatformDomChecks.mjs"],
   ["Inference adapters", "packages/local-inference/tests/runAdapterChecks.mjs"],

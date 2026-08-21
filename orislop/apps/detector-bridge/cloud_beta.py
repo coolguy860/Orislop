@@ -25,6 +25,22 @@ PER_MINUTE_CANDIDATES = 30
 PER_DAY_CANDIDATES = 500
 MAX_ANALYZE_BATCH_SIZE = 10
 SUPPORTED_PLATFORMS = {"youtube", "instagram", "tiktok", "linkedin"}
+PRODUCT_EVENT_SCHEMA_VERSION = 1
+MAX_PRODUCT_EVENT_BATCH_SIZE = 20
+PRODUCT_EVENT_RETENTION_DAYS = min(90, max(1, int(os.environ.get("ORISLOP_PRODUCT_EVENT_RETENTION_DAYS", "30"))))
+PRODUCT_EVENT_NAMES = {
+    "scan_batch_started", "scan_batch_completed", "request_failed", "request_retried",
+    "request_deduplicated", "decision_presented", "correction_submitted", "manual_skip",
+    "attention_response", "feature_toggled", "adapter_health",
+}
+PRODUCT_EVENT_ATTRIBUTE_FIELDS = {
+    "platform", "inferenceMode", "performanceMode", "outcome", "status", "verdict",
+    "reasonCode", "requestKind", "correction", "satisfaction", "feature", "adapterState",
+    "cacheState", "durationBucket", "retryAfterBucket", "modelIds", "batchSize", "itemCount",
+    "hiddenCount", "retryCount", "dedupeCount", "queueDepthBucket",
+}
+PRODUCT_EVENT_ID = re.compile(r"^[A-Za-z0-9_-]{16,96}$")
+PRODUCT_EVENT_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+\-]{0,119}$")
 
 
 def _b64url(value: bytes) -> str:
@@ -118,6 +134,7 @@ class MemoryBetaStore:
         self.sessions: dict[str, dict[str, Any]] = {}
         self.decisions: dict[str, dict[str, Any]] = {}
         self.feedback: dict[str, dict[str, Any]] = {}
+        self.product_events: dict[str, dict[str, Any]] = {}
         self.lock = threading.RLock()
 
     def upsert_user(self, google_subject: str, email: str, name: str) -> dict[str, Any]:
@@ -211,6 +228,30 @@ class MemoryBetaStore:
         with self.lock:
             self.feedback[feedback["feedbackId"]] = json.loads(json.dumps(feedback))
 
+    def save_product_events(self, installation_hash: str, events: list[dict[str, Any]]) -> dict[str, int]:
+        accepted = 0
+        duplicate = 0
+        with self.lock:
+            for event in events:
+                event_id = event["eventId"]
+                if event_id in self.product_events:
+                    duplicate += 1
+                    continue
+                self.product_events[event_id] = {"installationHash": installation_hash, **json.loads(json.dumps(event))}
+                accepted += 1
+            while len(self.product_events) > 5000:
+                self.product_events.pop(next(iter(self.product_events)))
+        return {"accepted": accepted, "duplicate": duplicate}
+
+    def delete_product_events(self, installation_hash: str) -> int:
+        with self.lock:
+            before = len(self.product_events)
+            self.product_events = {
+                key: value for key, value in self.product_events.items()
+                if value.get("installationHash") != installation_hash
+            }
+            return before - len(self.product_events)
+
 
 class PostgresBetaStore(MemoryBetaStore):
     """Managed-Postgres persistence. In-memory maps retain only transient media jobs."""
@@ -253,6 +294,14 @@ class PostgresBetaStore(MemoryBetaStore):
           payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           expires_at TIMESTAMPTZ NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS product_events (
+          id TEXT PRIMARY KEY, installation_hash TEXT NOT NULL, session_hash TEXT NOT NULL,
+          schema_version INTEGER NOT NULL, event_name TEXT NOT NULL, extension_version TEXT NOT NULL,
+          attributes JSONB NOT NULL, occurred_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(), expires_at TIMESTAMPTZ NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS product_events_installation_hash_idx ON product_events (installation_hash);
+        CREATE INDEX IF NOT EXISTS product_events_expires_at_idx ON product_events (expires_at);
         """
         with self._connect() as connection:
             with connection.cursor() as cursor:
@@ -357,6 +406,34 @@ class PostgresBetaStore(MemoryBetaStore):
                 (feedback["feedbackId"], feedback["decisionId"], feedback["userId"], json.dumps(feedback)),
             )
             cursor.execute("UPDATE beta_decisions SET feedback_state=%s WHERE id=%s", (feedback["kind"], feedback["decisionId"]))
+
+    def save_product_events(self, installation_hash: str, events: list[dict[str, Any]]) -> dict[str, int]:
+        accepted = 0
+        duplicate = 0
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute("DELETE FROM product_events WHERE expires_at<=now()")
+            for event in events:
+                cursor.execute(
+                    """INSERT INTO product_events
+                    (id,installation_hash,session_hash,schema_version,event_name,extension_version,attributes,occurred_at,expires_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb,%s::timestamptz,now()+(%s * interval '1 day'))
+                    ON CONFLICT (id) DO NOTHING""",
+                    (
+                        event["eventId"], installation_hash, event["sessionHash"], event["schemaVersion"],
+                        event["eventName"], event["extensionVersion"], json.dumps(event["attributes"]),
+                        event["occurredAt"], PRODUCT_EVENT_RETENTION_DAYS,
+                    ),
+                )
+                if cursor.rowcount == 1:
+                    accepted += 1
+                else:
+                    duplicate += 1
+        return {"accepted": accepted, "duplicate": duplicate}
+
+    def delete_product_events(self, installation_hash: str) -> int:
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute("DELETE FROM product_events WHERE installation_hash=%s", (installation_hash,))
+            return max(0, int(cursor.rowcount or 0))
 
 
 class GoogleOidc:
@@ -750,6 +827,104 @@ class CloudBetaController:
         if decision.get("automaticSkipEligible"):
             self.guard.record_hide_feedback(kind in {"reveal", "undo", "wrong_hide"}, kind == "wrong_hide")
         return feedback
+
+    def product_events(self, body: dict[str, Any]) -> dict[str, Any]:
+        if body.get("schemaVersion") != PRODUCT_EVENT_SCHEMA_VERSION:
+            raise ValueError("Unsupported product event schema version")
+        raw_events = body.get("events")
+        if not isinstance(raw_events, list) or not 1 <= len(raw_events) <= MAX_PRODUCT_EVENT_BATCH_SIZE:
+            raise ValueError(f"events must contain 1 to {MAX_PRODUCT_EVENT_BATCH_SIZE} items")
+        installation_id = ""
+        normalized: list[dict[str, Any]] = []
+        now = time.time()
+        for raw in raw_events:
+            event = validate_product_event(raw, now)
+            if not installation_id:
+                installation_id = event.pop("installationId")
+            elif event.get("installationId") != installation_id:
+                raise ValueError("All events in a batch must use one installation identifier")
+            else:
+                event.pop("installationId")
+            session_id = event.pop("sessionId")
+            event["sessionHash"] = hmac.new(self.content_secret, f"session:{session_id}".encode(), hashlib.sha256).hexdigest()
+            normalized.append(event)
+        installation_hash = self.product_installation_hash(installation_id)
+        result = self.store.save_product_events(installation_hash, normalized)
+        return {
+            **result,
+            "received": len(normalized),
+            "retentionDays": PRODUCT_EVENT_RETENTION_DAYS,
+            "schemaVersion": PRODUCT_EVENT_SCHEMA_VERSION,
+        }
+
+    def delete_product_events(self, installation_id: str) -> int:
+        if not PRODUCT_EVENT_ID.fullmatch(str(installation_id or "")):
+            raise ValueError("A valid installation identifier is required")
+        return self.store.delete_product_events(self.product_installation_hash(installation_id))
+
+    def product_installation_hash(self, installation_id: str) -> str:
+        return hmac.new(self.content_secret, f"installation:{installation_id}".encode(), hashlib.sha256).hexdigest()
+
+
+def validate_product_event(raw: Any, now: float | None = None) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise ValueError("Each product event must be an object")
+    allowed_fields = {
+        "schemaVersion", "eventId", "eventName", "occurredAt", "installationId",
+        "sessionId", "extensionVersion", "attributes",
+    }
+    if set(raw) - allowed_fields:
+        raise ValueError("Product event contains unsupported fields")
+    if raw.get("schemaVersion") != PRODUCT_EVENT_SCHEMA_VERSION:
+        raise ValueError("Unsupported product event schema version")
+    for key in ("eventId", "installationId", "sessionId"):
+        if not PRODUCT_EVENT_ID.fullmatch(str(raw.get(key) or "")):
+            raise ValueError(f"Invalid {key}")
+    event_name = str(raw.get("eventName") or "")
+    if event_name not in PRODUCT_EVENT_NAMES:
+        raise ValueError("Unsupported product event name")
+    occurred_at = str(raw.get("occurredAt") or "")
+    try:
+        occurred_timestamp = datetime.fromisoformat(occurred_at.replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError) as error:
+        raise ValueError("Invalid product event timestamp") from error
+    current = now or time.time()
+    if occurred_timestamp < current - 7 * 24 * 60 * 60 or occurred_timestamp > current + 5 * 60:
+        raise ValueError("Product event timestamp is outside the accepted window")
+    extension_version = str(raw.get("extensionVersion") or "unknown")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+\-]{0,31}", extension_version):
+        raise ValueError("Invalid extension version")
+    attributes = raw.get("attributes")
+    if not isinstance(attributes, dict) or set(attributes) - PRODUCT_EVENT_ATTRIBUTE_FIELDS:
+        raise ValueError("Product event attributes are invalid")
+    normalized_attributes: dict[str, Any] = {}
+    for key, value in attributes.items():
+        if key == "modelIds":
+            if not isinstance(value, list) or len(value) > 8:
+                raise ValueError("modelIds must be a bounded array")
+            models = [str(model) for model in value]
+            if any(not PRODUCT_EVENT_TOKEN.fullmatch(model) for model in models):
+                raise ValueError("Invalid model identifier")
+            normalized_attributes[key] = models
+        elif key in {"batchSize", "itemCount", "hiddenCount", "retryCount", "dedupeCount", "queueDepthBucket"}:
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 10000:
+                raise ValueError(f"Invalid numeric attribute {key}")
+            normalized_attributes[key] = int(value)
+        else:
+            token = str(value)
+            if not PRODUCT_EVENT_TOKEN.fullmatch(token):
+                raise ValueError(f"Invalid product event attribute {key}")
+            normalized_attributes[key] = token
+    return {
+        "schemaVersion": PRODUCT_EVENT_SCHEMA_VERSION,
+        "eventId": str(raw["eventId"]),
+        "eventName": event_name,
+        "occurredAt": datetime.fromtimestamp(occurred_timestamp, tz=timezone.utc).isoformat(),
+        "installationId": str(raw["installationId"]),
+        "sessionId": str(raw["sessionId"]),
+        "extensionVersion": extension_version,
+        "attributes": normalized_attributes,
+    }
 
 
 def build_beta_services() -> tuple[MemoryBetaStore, AuthManager, CloudBetaController] | tuple[None, None, None]:

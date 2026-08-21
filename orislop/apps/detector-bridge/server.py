@@ -49,6 +49,7 @@ load_local_environment(Path(__file__).with_name(".env.local"))
 from fact_check_service import DEFAULT_OLLAMA_MODEL, OLLAMA_KEEP_ALIVE, FactCheckService, request_json, safe_domain, sanitize_model, source_authority, validate_ollama_url
 from cloud_beta import AuthError, QuotaError, build_beta_services, public_user
 from resource_scheduler import AdaptiveExecutionScheduler, ExecutionStrategy, is_cuda_oom, recommended_download_workers
+from request_policy import LayeredRateLimiter, MinuteRateLimiter
 from temporal_package import TemporalPackageError, build_bundle_from_package, resolve_temporal_package
 
 
@@ -63,7 +64,14 @@ LIGHTWEIGHT_WORKERS = recommended_download_workers()
 NETWORK_THREAD_LOCAL = threading.local()
 RESULT_CACHE_TTL_SECONDS = int(os.environ.get("ORISLOP_RESULT_CACHE_TTL_SECONDS", str(6 * 60 * 60)))
 RATE_LIMIT_PER_MINUTE = int(os.environ.get("ORISLOP_RATE_LIMIT_PER_MINUTE", "120"))
+RATE_LIMIT_BURST = int(os.environ.get("ORISLOP_RATE_LIMIT_BURST", "20"))
+RATE_LIMIT_BURST_SECONDS = int(os.environ.get("ORISLOP_RATE_LIMIT_BURST_SECONDS", "10"))
+RATE_LIMIT_EXPLAIN_PER_MINUTE = int(os.environ.get("ORISLOP_RATE_LIMIT_EXPLAIN_PER_MINUTE", "20"))
+RATE_LIMIT_WRITE_PER_MINUTE = int(os.environ.get("ORISLOP_RATE_LIMIT_WRITE_PER_MINUTE", "30"))
+RATE_LIMIT_IP_PER_MINUTE = int(os.environ.get("ORISLOP_RATE_LIMIT_IP_PER_MINUTE", "300"))
+DETECTOR_CACHE_SCHEMA_VERSION = os.environ.get("ORISLOP_DETECTOR_CACHE_SCHEMA_VERSION", "v2").strip() or "v2"
 CLOUD_MODE = HOST not in {"127.0.0.1", "localhost", "::1"}
+PRODUCT_TELEMETRY_ENABLED = os.environ.get("ORISLOP_PRODUCT_TELEMETRY_ENABLED", "1" if CLOUD_MODE else "0") == "1"
 CLOUD_HEAVY_ENABLED = os.environ.get("ORISLOP_CLOUD_HEAVY_ENABLED", "1" if CLOUD_MODE else "0") == "1"
 REQUIRE_API_AUTH = os.environ.get("ORISLOP_REQUIRE_API_AUTH", "1" if CLOUD_MODE else "0") == "1"
 API_TOKENS = tuple(
@@ -775,17 +783,23 @@ class DetectorService:
         self.metrics = {
             "submitted": 0,
             "cache_hits": 0,
+            "cache_misses": 0,
             "provisional_completed": 0,
             "completed": 0,
             "failed": 0,
             "preview_unavailable": 0,
             "priority_upgrades": 0,
+            "deduplicated": 0,
             "lightweight_last_ms": 0,
             "heavyweight_last_ms": 0,
             "visual_detections": 0,
             "visual_auto_skips": 0,
             "visual_shadow_decisions": 0,
             "gpu_lookahead_preemptions": 0,
+            "requests": 0,
+            "requests_by_endpoint": {},
+            "rate_limited": 0,
+            "telemetry_events": 0,
         }
         if start_workers:
             for worker_index in range(LIGHTWEIGHT_WORKERS):
@@ -831,6 +845,20 @@ class DetectorService:
                     "api_auth": "bearer-required" if REQUIRE_API_AUTH else "disabled",
                     "extension_origin_policy": "allowlist" if ALLOWED_EXTENSION_ORIGINS else "development-any-extension",
                     "originless_posts": ALLOW_ORIGINLESS_POSTS,
+                },
+                "product_intelligence": {
+                    "telemetry_enabled": PRODUCT_TELEMETRY_ENABLED,
+                    "event_schema_version": 1,
+                    "retention_days": int(os.environ.get("ORISLOP_PRODUCT_EVENT_RETENTION_DAYS", "30")),
+                    "cache_schema_version": DETECTOR_CACHE_SCHEMA_VERSION,
+                    "rate_limits": {
+                        "inference_per_minute": RATE_LIMIT_PER_MINUTE,
+                        "burst": RATE_LIMIT_BURST,
+                        "burst_seconds": RATE_LIMIT_BURST_SECONDS,
+                        "explain_per_minute": RATE_LIMIT_EXPLAIN_PER_MINUTE,
+                        "write_per_minute": RATE_LIMIT_WRITE_PER_MINUTE,
+                        "ip_per_minute": RATE_LIMIT_IP_PER_MINUTE,
+                    },
                 },
                 "visual_rollout": {
                     "mode": getattr(self.cloud_heavy, "rollout_mode", VISUAL_ROLLOUT_MODE),
@@ -944,6 +972,7 @@ class DetectorService:
                     self.results.move_to_end(key)
                     response.append({"id": item_id, **cached})
                     continue
+                self.metrics["cache_misses"] += 1
                 if key not in self.queued or (queued_priority is not None and priority < queued_priority):
                     try:
                         self._enqueue_scan_locked(
@@ -953,6 +982,8 @@ class DetectorService:
                     except queue.Full:
                         response.append({"id": item_id, "status": "error", "error": "Detector queue is full"})
                         continue
+                else:
+                    self.metrics["deduplicated"] += 1
             response.append({
                 "id": item_id,
                 "status": "pending",
@@ -1976,7 +2007,8 @@ def normalize_scan_priority(value: Any) -> int:
 
 def detector_cache_key(item_id: str, page_url: str, performance_profile: str) -> str:
     profile = normalize_performance_profile(performance_profile)
-    return hashlib.sha256(f"{item_id}|{page_url}|{profile}".encode("utf-8")).hexdigest()
+    namespace = f"orislop:{VERSION}:{DETECTOR_CACHE_SCHEMA_VERSION}"
+    return hashlib.sha256(f"{namespace}|{item_id}|{page_url}|{profile}".encode("utf-8")).hexdigest()
 
 
 def model_state(model: Any, attempted: bool, active_state: str) -> str:
@@ -2821,31 +2853,11 @@ TEXT_SLOP_SERVICE = TextSlopService(ollama_lock=OLLAMA_INFERENCE_LOCK)
 BETA_STORE, BETA_AUTH, BETA_CONTROLLER = build_beta_services()
 
 
-class MinuteRateLimiter:
-    def __init__(self, limit: int) -> None:
-        self.limit = max(1, limit)
-        self.buckets: dict[str, tuple[float, int]] = {}
-        self.lock = threading.Lock()
-
-    def allow(self, key: str) -> bool:
-        now = time.monotonic()
-        with self.lock:
-            started_at, count = self.buckets.get(key, (now, 0))
-            if now - started_at >= 60:
-                started_at, count = now, 0
-            if count >= self.limit:
-                return False
-            self.buckets[key] = (started_at, count + 1)
-            if len(self.buckets) > 100:
-                self.buckets = {
-                    bucket_key: value
-                    for bucket_key, value in self.buckets.items()
-                    if now - value[0] < 60
-                }
-            return True
-
-
-RATE_LIMITER = MinuteRateLimiter(RATE_LIMIT_PER_MINUTE)
+INFERENCE_RATE_LIMITER = LayeredRateLimiter(RATE_LIMIT_BURST, RATE_LIMIT_BURST_SECONDS, RATE_LIMIT_PER_MINUTE)
+EXPLAIN_RATE_LIMITER = LayeredRateLimiter(3, 10, RATE_LIMIT_EXPLAIN_PER_MINUTE)
+WRITE_RATE_LIMITER = LayeredRateLimiter(5, 10, RATE_LIMIT_WRITE_PER_MINUTE)
+AUTH_RATE_LIMITER = LayeredRateLimiter(5, 30, 12)
+IP_RATE_LIMITER = LayeredRateLimiter(max(30, RATE_LIMIT_BURST * 3), RATE_LIMIT_BURST_SECONDS, RATE_LIMIT_IP_PER_MINUTE)
 
 
 def api_token_valid(authorization: str) -> bool:
@@ -2879,6 +2891,9 @@ class Handler(BaseHTTPRequestHandler):
             if not self._beta_available():
                 return
             try:
+                self._record_request(path)
+                if not self._check_rate_limit(INFERENCE_RATE_LIMITER, self._rate_identity()):
+                    return
                 principal = self._beta_principal()
                 if path == "/v2/me":
                     self._json(HTTPStatus.OK, {
@@ -2957,13 +2972,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
             return
         try:
+            self._record_request(path)
             length = int(self.headers.get("Content-Length", "0"))
             if length < 1 or length > MAX_REQUEST_BYTES:
                 raise ValueError("Invalid request size")
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             if path == "/v1/explain":
-                if not RATE_LIMITER.allow(rate_key):
-                    self._json(HTTPStatus.TOO_MANY_REQUESTS, {"ok": False, "error": "Rate limit exceeded; retry in one minute"})
+                if not self._check_rate_limit(EXPLAIN_RATE_LIMITER, rate_key):
                     return
                 result = TEXT_SLOP_SERVICE.explain(body)
                 self._json(HTTPStatus.OK, {"ok": True, "requestId": self.request_id, **result})
@@ -2973,8 +2988,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("candidates must be an array")
             profile = body.get("performanceProfile", "heavy")
             consumes_quota = path != "/v1/analyze" or SERVICE.has_unseen_candidates(candidates, profile)
-            if consumes_quota and not RATE_LIMITER.allow(rate_key):
-                self._json(HTTPStatus.TOO_MANY_REQUESTS, {"ok": False, "error": "Rate limit exceeded; retry in one minute"})
+            if consumes_quota and not self._check_rate_limit(INFERENCE_RATE_LIMITER, rate_key):
                 return
             if path == "/v1/fact-check":
                 results = FACT_CHECK_SERVICE.submit(candidates, clean_text(body.get("model"), 100) or DEFAULT_OLLAMA_MODEL)
@@ -2993,10 +3007,29 @@ class Handler(BaseHTTPRequestHandler):
         if not self._origin_allowed(allow_missing=False):
             self._json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "Origin not allowed"})
             return
+        if path == "/v2/telemetry":
+            if not PRODUCT_TELEMETRY_ENABLED:
+                self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "Anonymous product insights are not enabled on this deployment"})
+                return
+            if not self._beta_available():
+                return
+            installation_id = clean_text(self.headers.get("X-Orislop-Installation-Id"), 100)
+            if not self._check_rate_limit(WRITE_RATE_LIMITER, self._rate_identity(installation_id)):
+                return
+            try:
+                self._record_request(path)
+                deleted = BETA_CONTROLLER.delete_product_events(installation_id)
+                self._json(HTTPStatus.OK, {"ok": True, "deleted": deleted})
+            except ValueError as error:
+                self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": clean_text(error, 240)})
+            return
         if path != "/v2/me" or not self._beta_available():
             self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
             return
         try:
+            if not self._check_rate_limit(WRITE_RATE_LIMITER, self._rate_identity()):
+                return
+            self._record_request(path)
             principal = self._beta_principal()
             BETA_STORE.delete_user(principal["user"]["id"])
             self._json(HTTPStatus.OK, {"ok": True, "deleted": True})
@@ -3004,17 +3037,33 @@ class Handler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": clean_text(error, 240)})
 
     def _handle_v2_post(self, path: str) -> None:
-        if path not in {"/v2/auth/google", "/v2/auth/refresh", "/v2/auth/logout", "/v2/analyze", "/v2/analyze/batch", "/v2/feedback"}:
+        if path not in {"/v2/auth/google", "/v2/auth/refresh", "/v2/auth/logout", "/v2/analyze", "/v2/analyze/batch", "/v2/feedback", "/v2/telemetry"}:
             self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
+            return
+        if path == "/v2/telemetry" and not PRODUCT_TELEMETRY_ENABLED:
+            self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "Anonymous product insights are not enabled on this deployment"})
             return
         if not self._beta_available():
             return
         try:
+            self._record_request(path)
+            rate_identity = self._rate_identity(clean_text(self.headers.get("X-Orislop-Installation-Id"), 100))
+            limiter = AUTH_RATE_LIMITER if path in {"/v2/auth/google", "/v2/auth/refresh"} else WRITE_RATE_LIMITER if path in {"/v2/feedback", "/v2/telemetry", "/v2/auth/logout"} else INFERENCE_RATE_LIMITER
+            if not self._check_rate_limit(limiter, rate_identity):
+                return
             body = self._read_json_body()
             if path == "/v2/auth/google":
                 result = BETA_AUTH.google_login(body)
             elif path == "/v2/auth/refresh":
                 result = BETA_AUTH.refresh(clean_text(body.get("refreshToken"), 1000))
+            elif path == "/v2/telemetry":
+                header_installation = clean_text(self.headers.get("X-Orislop-Installation-Id"), 100)
+                first_installation = clean_text((body.get("events") or [{}])[0].get("installationId"), 100) if isinstance(body.get("events"), list) and body.get("events") else ""
+                if not header_installation or not secrets.compare_digest(header_installation, first_installation):
+                    raise ValueError("Installation identifier header does not match the event batch")
+                result = BETA_CONTROLLER.product_events(body)
+                with SERVICE.lock:
+                    SERVICE.metrics["telemetry_events"] += int(result.get("accepted", 0))
             else:
                 principal = self._beta_principal()
                 user_id = principal["user"]["id"]
@@ -3046,7 +3095,7 @@ class Handler(BaseHTTPRequestHandler):
         except AuthError as error:
             self._json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": clean_text(error, 240)})
         except QuotaError as error:
-            self._json(HTTPStatus.TOO_MANY_REQUESTS, {"ok": False, "error": clean_text(error, 240)})
+            self._json(HTTPStatus.TOO_MANY_REQUESTS, {"ok": False, "error": clean_text(error, 240)}, {"Retry-After": "60"})
         except ValueError as error:
             self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": clean_text(error, 500)})
         except Exception as error:
@@ -3069,6 +3118,37 @@ class Handler(BaseHTTPRequestHandler):
 
     def _beta_principal(self) -> dict[str, Any]:
         return BETA_AUTH.authenticate_access(self.headers.get("Authorization", ""))
+
+    def _rate_identity(self, installation_id: str = "") -> str:
+        bearer = self._bearer_token()
+        if bearer:
+            return f"bearer:{hashlib.sha256(bearer.encode('utf-8')).hexdigest()[:24]}"
+        if installation_id:
+            return f"installation:{hashlib.sha256(installation_id.encode('utf-8')).hexdigest()[:24]}"
+        origin = self.headers.get("Origin", "")
+        return f"origin:{hashlib.sha256(origin.encode('utf-8')).hexdigest()[:24]}" if origin else f"ip:{self.client_address[0]}"
+
+    def _record_request(self, path: str) -> None:
+        with SERVICE.lock:
+            SERVICE.metrics["requests"] += 1
+            by_endpoint = SERVICE.metrics["requests_by_endpoint"]
+            endpoint = clean_text(path, 80) or "unknown"
+            by_endpoint[endpoint] = int(by_endpoint.get(endpoint, 0)) + 1
+
+    def _check_rate_limit(self, limiter: LayeredRateLimiter, identity: str, cost: int = 1) -> bool:
+        identity_result = limiter.check(identity, cost)
+        ip_result = IP_RATE_LIMITER.check(f"ip:{self.client_address[0]}", cost)
+        if identity_result["allowed"] and ip_result["allowed"]:
+            return True
+        retry_after = max(int(identity_result["retry_after"]), int(ip_result["retry_after"]))
+        with SERVICE.lock:
+            SERVICE.metrics["rate_limited"] += 1
+        self._json(
+            HTTPStatus.TOO_MANY_REQUESTS,
+            {"ok": False, "error": "Too many requests. Please wait briefly and try again."},
+            {"Retry-After": str(max(1, retry_after))},
+        )
+        return False
 
     def log_message(self, format_string: str, *args: Any) -> None:
         if os.environ.get("ORISLOP_DETECTOR_VERBOSE") == "1":
@@ -3097,7 +3177,7 @@ class Handler(BaseHTTPRequestHandler):
         if origin and self._origin_allowed(allow_missing=False):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
-        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Orislop-Installation-Id, X-Orislop-Request-Id")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
@@ -3105,13 +3185,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
 
-    def _json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
+    def _json(self, status: HTTPStatus, payload: dict[str, Any], headers: dict[str, str] | None = None) -> None:
         encoded = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         self.send_response(status)
         self._cors_headers()
         self.send_header("X-Orislop-Request-Id", getattr(self, "request_id", secrets.token_hex(8)))
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(encoded)))
+        for key, value in (headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(encoded)
 

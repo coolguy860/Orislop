@@ -33,6 +33,8 @@
     ollamaModel: "qwen2.5:1.5b-instruct",
     inferenceMode: "local",
     performanceMode: "heavy",
+    productAnalyticsEnabled: false,
+    attentionLogEnabled: false,
     watchIntentComplete: false,
     slopPreferences: [...DEFAULT_SLOP_PREFERENCES]
   };
@@ -49,6 +51,7 @@
   const observedItemKeys = new Set();
   const advancedItemKeys = new Set();
   const openedLinkedInVideoKeys = new Set();
+  const telemetryDecisionKeys = new Set();
   const suppressedMediaByItem = new Map();
   const originalPlaybackState = new WeakMap();
   const learnedBrainrotTerms = new Set();
@@ -216,12 +219,14 @@
       const fastStartedAt = performance.now();
       const jobs = [];
       const scanEntries = [];
+      let attentionNewCount = 0;
       const loadedCandidates = findLookaheadCandidates();
       const visibleCount = loadedCandidates.filter(({ element }) => isInViewport(element)).length;
       for (const { element, candidate, current, scanPriority } of loadedCandidates) {
         if (!(element instanceof HTMLElement) || element.getAttribute(PROCESSED_ATTR) === "allowed") continue;
         if (!candidate.itemKey || (!candidate.title && candidate.visibleText.length < 20)) continue;
         scanEntries.push({ element, candidate, current, scanPriority });
+        if (!observedItemKeys.has(candidate.itemKey)) attentionNewCount += 1;
         observedItemKeys.add(candidate.itemKey);
         while (observedItemKeys.size > 1000) observedItemKeys.delete(observedItemKeys.values().next().value);
         element.setAttribute(ITEM_KEY_ATTR, candidate.itemKey);
@@ -309,6 +314,11 @@
         heavyEscalatedCount: finalCoverage.heavyEscalated,
         deepPendingCount: finalCoverage.pending,
         heavyP95Ms: percentile95(heavyLatencySamples)
+      });
+      void publishSessionProgress({
+        platform: currentPlatform(),
+        itemCount: attentionNewCount,
+        hiddenCount: scanEntries.filter(({ element }) => element.classList.contains("orislop-skip-hidden")).length
       });
     } catch (error) {
       void publishScanStatus({
@@ -1254,6 +1264,7 @@
   }
 
   function applyDecision(element, candidate, decision) {
+    publishDecisionPresented(candidate, decision);
     if (candidate.platform === "linkedin") {
       clearDecisionUi(element, candidate.itemKey);
       restoreAutomaticallyHiddenItem(element, candidate);
@@ -1282,6 +1293,7 @@
       if (finalShortFormSkip && !advancedItemKeys.has(candidate.itemKey)) {
         hideElement(element, candidate, decision, false);
         advancedItemKeys.add(candidate.itemKey);
+        while (advancedItemKeys.size > 1000) advancedItemKeys.delete(advancedItemKeys.values().next().value);
         window.setTimeout(() => OrislopPlatformAdapters.advanceOne(candidate.platform, document), 50);
       } else {
         if (advancedItemKeys.has(candidate.itemKey)) restoreAutomaticallyHiddenItem(element, candidate);
@@ -1345,6 +1357,15 @@
       element.classList.remove("orislop-skip-hidden", "orislop-current-item-hidden");
       releaseSuppressedPlayback(candidate.itemKey, true);
       showExplainControl(element, candidate, decision);
+      void publishProductEvent("correction_submitted", {
+        platform: candidate.platform,
+        correction: "dont_skip",
+        verdict: "skip",
+        reasonCode: decisionReasonCode(decision),
+        inferenceMode: settingsCache.inferenceMode,
+        performanceMode: settingsCache.performanceMode,
+        modelIds: decisionModelIds(decision)
+      });
       const cloudDecisionId = decision?.detectorDecision?.decisionId || decision?.decisionId;
       if (cloudDecisionId) {
         void sendRuntimeMessage({
@@ -1838,6 +1859,16 @@
     if (explicit || decision.detectorStatus !== "provisional") {
       void saveSkippedRecord(candidate, decision, explicit ? "user_skip" : "hidden_before_view");
     }
+    if (explicit) {
+      void publishProductEvent("manual_skip", {
+        platform: candidate.platform,
+        verdict: "skip",
+        reasonCode: decisionReasonCode(decision),
+        inferenceMode: settingsCache.inferenceMode,
+        performanceMode: settingsCache.performanceMode,
+        modelIds: decisionModelIds(decision)
+      });
+    }
   }
 
   function restoreAutomaticallyHiddenItem(element, candidate) {
@@ -2000,6 +2031,7 @@
     const id = `${candidate.itemKey}:${mode}`;
     if (loggedSkipKeys.has(id)) return;
     loggedSkipKeys.add(id);
+    while (loggedSkipKeys.size > 1000) loggedSkipKeys.delete(loggedSkipKeys.values().next().value);
     await historyWriter.append(SKIPPED_KEY, {
       id,
       itemKey: candidate.itemKey,
@@ -2049,7 +2081,9 @@
         : typeof value.hideFeedCards === "boolean" ? value.hideFeedCards : DEFAULT_SETTINGS.hideSkipped,
       ollamaModel: /^[a-zA-Z0-9._:/-]{1,100}$/.test(String(value.ollamaModel || "")) ? String(value.ollamaModel) : DEFAULT_SETTINGS.ollamaModel,
       inferenceMode: ["local", "hybrid", "cloud"].includes(value.inferenceMode) ? value.inferenceMode : DEFAULT_SETTINGS.inferenceMode,
-      performanceMode: ["fast", "heavy"].includes(value.performanceMode) ? value.performanceMode : "auto",
+      performanceMode: ["auto", "fast", "heavy"].includes(value.performanceMode) ? value.performanceMode : "auto",
+      productAnalyticsEnabled: value.productAnalyticsEnabled === true,
+      attentionLogEnabled: value.attentionLogEnabled === true,
       watchIntentComplete: value.watchIntentComplete === true,
       slopPreferences: SLOP_PREFERENCE_API?.normalize(value.slopPreferences) || [...DEFAULT_SLOP_PREFERENCES]
     };
@@ -2062,6 +2096,52 @@
     } catch {
       return [];
     }
+  }
+
+  function publishDecisionPresented(candidate, decision) {
+    if (!settingsCache.productAnalyticsEnabled || decision?.detectorStatus === "provisional") return;
+    const fingerprint = `${candidate.itemKey}:${decision.recommendation}:${Math.round(Number(decision.score) || 0)}`;
+    if (telemetryDecisionKeys.has(fingerprint)) return;
+    telemetryDecisionKeys.add(fingerprint);
+    while (telemetryDecisionKeys.size > 1000) telemetryDecisionKeys.delete(telemetryDecisionKeys.values().next().value);
+    void publishProductEvent("decision_presented", {
+      platform: candidate.platform,
+      verdict: decision.recommendation === "skip" ? "skip" : "dont_skip",
+      reasonCode: decisionReasonCode(decision),
+      status: decision.detectorStatus || "unknown",
+      inferenceMode: settingsCache.inferenceMode,
+      performanceMode: settingsCache.performanceMode,
+      modelIds: decisionModelIds(decision)
+    });
+  }
+
+  function decisionReasonCode(decision) {
+    if (decision?.hardAiSynthetic === true || decision?.hardLocalSkip === true) return "explicit_synthetic_signal";
+    if (decision?.hardFactContradiction === true || decision?.factCheckDecision?.verdict === "contradicted") return "source_contradiction";
+    if (decision?.detectorDecision?.automaticSkipEligible === true) return "corroborated_visual_signal";
+    if (decision?.recommendation === "skip") return "content_preference_match";
+    return "allowed_or_uncertain";
+  }
+
+  function decisionModelIds(decision) {
+    const detector = decision?.detectorDecision || {};
+    return [...new Set([
+      decision?.model,
+      detector.detector,
+      detector.model,
+      detector.spatialModel,
+      detector.temporalModel
+    ].filter(Boolean).map((value) => cleanText(value, 120)))].slice(0, 8);
+  }
+
+  function publishProductEvent(eventName, attributes) {
+    if (!settingsCache.productAnalyticsEnabled) return Promise.resolve({ ok: true, recorded: false });
+    return sendRuntimeMessage({ type: "orislop.telemetry", event: { eventName, attributes } }, 2500).catch(() => ({ ok: false }));
+  }
+
+  function publishSessionProgress(progress) {
+    if (!settingsCache.attentionLogEnabled) return Promise.resolve({ ok: true, recorded: false });
+    return sendRuntimeMessage({ type: "orislop.sessionProgress", progress }, 2500).catch(() => ({ ok: false }));
   }
 
   function currentPlatform() {
