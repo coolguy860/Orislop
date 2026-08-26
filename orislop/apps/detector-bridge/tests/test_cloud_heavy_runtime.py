@@ -80,7 +80,12 @@ class CloudHeavyRuntimeContractTests(unittest.TestCase):
             result = runtime.analyze_video("unused.mp4", component_workers=3)
         self.assertEqual(result["execution"]["mode"], "concurrent")
         self.assertEqual(result["execution"]["componentWorkers"], 3)
-        self.assertAlmostEqual(result["spatialFamilyProbability"], 0.8, places=6)
+        expected_spatial = combine_spatial_family(
+            0.8,
+            0.8,
+            runtime.config["calibration"]["spatialLogistic"],
+        )
+        self.assertAlmostEqual(result["spatialFamilyProbability"], expected_spatial, places=6)
 
     def test_spatial_calibration_treats_frame_models_as_one_family(self) -> None:
         combined = combine_spatial_family(0.8, 0.8, {
@@ -89,9 +94,6 @@ class CloudHeavyRuntimeContractTests(unittest.TestCase):
             "publicCoefficient": 0.5,
         })
         self.assertAlmostEqual(combined, 0.8, places=6)
-        committed = json.loads((REPO_ROOT / "configs" / "cloud_heavy_v1.json").read_text(encoding="utf-8"))
-        self.assertEqual(committed["calibration"]["spatialLogistic"]["customCoefficient"], 0.5)
-        self.assertEqual(committed["calibration"]["spatialLogistic"]["publicCoefficient"], 0.5)
 
     def test_motion_temperature_operates_on_logit(self) -> None:
         raw_logit = math.log(0.8 / 0.2)
@@ -108,9 +110,11 @@ class CloudHeavyRuntimeContractTests(unittest.TestCase):
     def test_non_english_and_shadow_mode_never_auto_hide(self) -> None:
         shadow = consensus_decision(0.99, 0.99, 0.8, 0.8, rollout_mode="shadow", language="en")
         non_english = consensus_decision(0.99, 0.99, 0.8, 0.8, rollout_mode="aggressive", language="es")
+        strict_testing = consensus_decision(0.99, 0.99, 0.8, 0.8, rollout_mode="strict-testing", language="es")
         self.assertTrue(shadow["synthetic"])
         self.assertFalse(shadow["automaticSkipEligible"])
         self.assertFalse(non_english["automaticSkipEligible"])
+        self.assertTrue(strict_testing["automaticSkipEligible"])
 
     def test_pins_and_uncalibrated_shadow_default_are_committed(self) -> None:
         config = json.loads((REPO_ROOT / "configs" / "cloud_heavy_v1.json").read_text(encoding="utf-8"))

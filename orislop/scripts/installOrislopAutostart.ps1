@@ -37,3 +37,4 @@ $Task = Get-ScheduledTask -TaskName $TaskName
   StartScript = $StartScript
   BrowserProcessesTouched = $false
 } | Format-List
+

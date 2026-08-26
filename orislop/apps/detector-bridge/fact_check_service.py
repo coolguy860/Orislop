@@ -22,7 +22,14 @@ from urllib.request import Request, urlopen
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 GOOGLE_FACT_CHECK_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
-DEFAULT_OLLAMA_MODEL = "qwen2.5:1.5b-instruct"
+LEGACY_OLLAMA_MODEL = "qwen2.5:1.5b-instruct"
+ORISLOP_OLLAMA_MODEL = "orislop-qwen2.5:1.5b-instruct"
+DEFAULT_OLLAMA_MODEL = (
+    os.environ.get("ORISLOP_OLLAMA_MODEL", LEGACY_OLLAMA_MODEL).strip()
+    or LEGACY_OLLAMA_MODEL
+)
+if not re.fullmatch(r"[a-zA-Z0-9._:/-]{1,100}", DEFAULT_OLLAMA_MODEL):
+    DEFAULT_OLLAMA_MODEL = LEGACY_OLLAMA_MODEL
 OLLAMA_KEEP_ALIVE = os.environ.get("ORISLOP_OLLAMA_KEEP_ALIVE", "24h").strip() or "24h"
 TRUSTED_OLLAMA_HOST = os.environ.get("ORISLOP_TRUSTED_OLLAMA_HOST", "").strip().lower()
 FACT_CHECK_CACHE_TTL_SECONDS = int(os.environ.get("ORISLOP_FACT_CHECK_CACHE_TTL_SECONDS", str(12 * 60 * 60)))
@@ -895,6 +902,9 @@ def normalize_confidence(value: Any) -> float:
 
 def sanitize_model(value: Any) -> str:
     model = clean_text(value, 100) or DEFAULT_OLLAMA_MODEL
+    compatible_names = {LEGACY_OLLAMA_MODEL, ORISLOP_OLLAMA_MODEL}
+    if model in compatible_names and DEFAULT_OLLAMA_MODEL in compatible_names:
+        return DEFAULT_OLLAMA_MODEL
     return model if re.fullmatch(r"[a-zA-Z0-9._:/-]{1,100}", model) else DEFAULT_OLLAMA_MODEL
 
 

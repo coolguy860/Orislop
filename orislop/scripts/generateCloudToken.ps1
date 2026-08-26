@@ -9,3 +9,4 @@ $Token = ([System.BitConverter]::ToString($Bytes)).Replace("-", "").ToLowerInvar
 Write-Host "Generated Orislop cloud testing token:" -ForegroundColor Green
 Write-Output $Token
 Write-Host "Store this only in your cloud secret manager and the test extension. Do not commit it." -ForegroundColor Yellow
+

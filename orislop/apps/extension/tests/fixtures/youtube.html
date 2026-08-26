@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Orislop YouTube fixture</title>
+    <link rel="stylesheet" href="../../src/contentStyles.css">
+    <style>
+      ytd-rich-item-renderer { display: block; height: 360px; margin: 12px; width: 260px; }
+      .media { height: 320px; position: relative; width: 240px; }
+      video { height: 100%; width: 100%; }
+    </style>
+  </head>
+  <body>
+    <ytd-rich-item-renderer id="short-card">
+      <div class="media">
+        <video muted></video>
+      </div>
+      <a href="/shorts/youtubeShort123"><h3 id="video-title">AI voice compilation</h3></a>
+      <ytd-channel-name><a href="/@examplecreator">examplecreator</a></ytd-channel-name>
+      <div id="metadata-line">Watch till the end. Subscribe for part 2.</div>
+    </ytd-rich-item-renderer>
+    <script>
+      globalThis.__ORISLOP_TEST__ = true;
+      globalThis.chrome = { runtime: { lastError: null, sendMessage(message, callback) { callback({ ok: true, ...message }); } } };
+    </script>
+    <script src="../../src/aiClassifierModel.generated.js"></script>
+    <script src="../../src/classifier.js"></script>
+    <script src="../../src/platformAdapters.js"></script>
+    <script src="../../src/controlCore.js"></script>
+    <script src="../../src/contentScript.js"></script>
+    <script>
+      const api = globalThis.__ORISLOP_EXTENSION_TEST_API__;
+      const card = document.getElementById("short-card");
+      const candidate = api.extractCandidate(card, "youtube");
+      api.showDecisionCover(card, candidate, {
+        recommendation: "skip",
+        score: 94,
+        detectorStatus: "ready",
+        reasons: ["Repeated AI voice and engagement-bait signals"]
+      });
+      api.renderPageScanIndicator({ state: "scanning", visibleCount: 1, checkedCount: 1 });
+      const cover = card.querySelector(".orislop-decision-cover");
+      document.body.dataset.result = encodeURIComponent(JSON.stringify({
+        platform: candidate.platform,
+        itemId: candidate.itemId,
+        itemKind: candidate.itemKind,
+        title: candidate.title,
+        channelName: candidate.channelName,
+        coverInsideMedia: cover?.parentElement?.classList.contains("media") === true,
+        coverActions: Array.from(cover?.querySelectorAll("button") || [], (button) => button.textContent),
+        explainControlPresent: Boolean(card.querySelector(".orislop-explain-button, .orislop-explanation-panel")),
+        askControlPresent: Boolean(card.querySelector(".orislop-cover-explain-button")),
+        liveIndicatorText: document.querySelector(".orislop-live-indicator")?.textContent || "",
+        liveIndicatorVisible: document.querySelector(".orislop-live-indicator")?.classList.contains("orislop-live-indicator-visible") === true
+      }));
+    </script>
+  </body>
+</html>

@@ -4,7 +4,7 @@
   const SKIP_THRESHOLD = 72;
   const SLOP_PREFERENCE_API = globalThis.OrislopSlopPreferences;
   const EDUCATIONAL_PATTERN = /\b(explain|explains|explained|explaining|lesson|lecture|tutorial|course|courseware|open\s*courseware|classroom|university|college|institute|academic|science|scientific|scientist|physicist|historian|history|historical|math|mathematics|physics|chemistry|biology|astronomy|astrophysics|cosmology|gravity|relativity|quantum|engineering|programming|coding|php|mysql|postgres(?:ql)?|sql|javascript|typescript|python|java|c\+\+|react(?:\.js)?|node(?:\.js)?|database|web\s+(?:development|application)|software\s+(?:development|engineering)|documentary|analysis|research|experiment|demonstration|visuali[sz](?:e|ed|ation)|how\s+to|learn|educational|education|professor|teacher|study|evidence|source|sourced)\b/;
-  const STORY_PATTERN = /\b(reddit|askreddit|aita|storytime|reddit\s+story|reddit\s+stories|reddit\s+thread|texting\s+stor(?:y|ies)|text\s+message\s+stor(?:y|ies)|chat\s+stor(?:y|ies)|pov\s+text(?:ing)?\s+stor(?:y|ies))\b/;
+  const STORY_PATTERN = /\b(reddit|ask\s*reddit|aita|am\s+i\s+the\s+asshole|r\s*\/\s*(?:askreddit|aita|confessions?|tifu)|storytime|reddit\s+(?:story|stories|thread|diaries|reads?|confessions?)|texting\s+stor(?:y|ies)|text\s+message\s+stor(?:y|ies)|chat\s+stor(?:y|ies)|pov\s+text(?:ing)?\s+stor(?:y|ies))\b/;
   const BACKGROUND_PATTERN = /\b(minecraft\s+parkour|subway\s+surfers|mobile\s+game(?:play)?|parkour\s+gameplay|minecraft\s+gameplay|satisfying\s+background|split\s+screen|bottom\s+video|video\s+(?:at|on)\s+the\s+bottom|asmr\s+(?:on\s+the\s+)?side|asmr\s+sidecar)\b/;
   const SYNTHETIC_NARRATION_PATTERN = /\b(ai\s+voice(?:over)?|text\s+to\s+speech|tts|robot\s+voice|synthetic\s+voice|voice\s+clone)\b/;
   const RECYCLED_PATTERN = /\b(repost(?:ed)?|re-?upload(?:ed)?|clips?\s+compilation|viral\s+clips|family\s+guy\s+clips|no\s+commentary|source\s+unknown|credit\s+unknown|not\s+mine|green\s*screen)\b/;
@@ -22,11 +22,18 @@
   const FILTERED_CREATOR_PATTERN = /\btopper\s+guild\b/;
   const SCAM_PATTERN = /\b(guaranteed\s+(?:passive\s+)?income|make\s+money\s+fast|miracle\s+cure|doctors\s+hate|banks\s+hate|they\s+don'?t\s+want\s+you\s+to\s+know|secret\s+trick|claim\s+your\s+prize)\b/;
   const CLICKBAIT_PATTERN = /\b(you\s+won'?t\s+believe|wait\s+for\s+it|watch\s+(?:till|until)\s+the\s+end|this\s+changed\s+everything|before\s+they\s+delete\s+this|insane\s+ending|shocking)\b/;
-  const ENGAGEMENT_PATTERN = /\b(like\s+and\s+follow|subscribe\s+for\s+more|follow\s+for\s+(?:more|part)|comment\s+below|tag\s+someone|share\s+this\s+with)\b/;
+  const ENGAGEMENT_PATTERN = /\b(like\s+and\s+(?:follow|subscribe)|subscribe\s+for\s+more|follow\s+for\s+(?:more|part)|comment\s+below|tag\s+someone|share\s+this\s+with|smash\s+(?:the\s+)?like|hit\s+(?:the\s+)?subscribe)\b/;
+  const DIRECT_SUBSCRIBER_SOLICITATION_PATTERN = /(?:^|\s)#(?:subscribe|subscribers?|subscribetomychannel)\b|\b(?:please\s+subscribe|subscribe\s+to\s+(?:my|our|the)\s+channel|help\s+(?:me|us)\s+(?:get|reach|hit)|road\s+to\s+[\d,.]+\s*(?:subs?|subscribers?)|can\s+we\s+(?:get|reach|hit)\s+[\d,.]+\s*(?:subs?|subscribers?)|i\s+need\s+[\d,.]+\s*(?:subs?|subscribers?))\b/;
+  const DROPSHIPPING_SCHEME_PATTERN = /\b(?:drop\s*shipping|dropshipping|shopify\s+store|amazon\s+fba|winning\s+products?)\b/;
+  const GET_RICH_QUICK_PATTERN = /\b(?:how\s+i\s+made|i\s+made|make|made|earn(?:ed)?|profit(?:ed)?)\b.{0,45}(?:\$\s*[\d,.]+|\d+\s*(?:k|thousand|million))\b.{0,45}\b(?:in|per)\s+\d+\s*(?:days?|weeks?|months?)\b|\b(?:with|from)\s+(?:no\s+money|\$?\s*0)\b|\bpassive\s+income\b/;
+  const SALES_FUNNEL_PATTERN = /\b(?:dm\s+me|message\s+me|link\s+in\s+(?:my\s+)?(?:bio|description)|free\s+(?:course|training|webinar)|buy\s+my\s+course|join\s+my\s+(?:course|community|mentorship)|shopify\s+for\s+\$?\d+|winning\s+products?)\b/;
+  const FINANCE_CRITIQUE_PATTERN = /\b(?:scam\s+exposed|debunk(?:ed|ing)?|critique|case\s+study|investigation|documentary|warning|risks?|why\s+(?:drop\s*shipping|dropshipping).{0,35}(?:fails?|doesn'?t\s+work)|the\s+problem\s+with\s+(?:drop\s*shipping|dropshipping))\b/;
   const SENSORY_PATTERN = /\b(oddly\s+satisfying|satisfying\s+(?:video|compilation|background)|asmr\s+compilation|ranking\s+the\s+most\s+satisfying)\b/;
   const TIER_RANKING_PATTERN = /\b(?:tier\s*list|ranking|rank(?:ing|ed)?|top\s+\d+)\b.{0,70}\b(?:funniest|funny|memes?|clips?|moments?|things?|characters?|cartoons?)\b|\b(?:funniest|funny)\b.{0,50}\b(?:tier\s*list|ranking|ranked)\b/;
   const PHONK_BACKGROUND_PATTERN = /\b(?:phonk|funk)\b.{0,60}\b(?:background|noise|audio|song|music|edit|clips?|movie|cartoon|scene|reddit|story)\b|\b(?:background|noise|audio|song|music|edit|clips?|movie|cartoon|scene)\b.{0,60}\b(?:phonk|funk)\b/;
-  const MOVIE_CARTOON_CLIP_PATTERN = /\b(?:movie|film|cartoon|anime|family\s+guy|south\s+park|sponge\s*bob|simpsons?|rick\s+and\s+morty|disney|pixar)\b.{0,55}\b(?:clips?|scenes?|moments?|background|footage)\b|\b(?:clips?|scenes?|moments?)\b.{0,55}\b(?:movie|film|cartoon|anime|family\s+guy|south\s+park|sponge\s*bob|simpsons?|rick\s+and\s+morty|disney|pixar)\b/;
+  const MOVIE_CARTOON_CLIP_PATTERN = /\b(?:movie|film|tv|television|series|show|sitcom|episode|cartoon|anime|family\s+guy|south\s+park|sponge\s*bob|simpsons?|rick\s+and\s+morty|disney|pixar|netflix|hbo)\b.{0,55}\b(?:clips?|scenes?|moments?|background|footage)\b|\b(?:clips?|scenes?|moments?)\b.{0,55}\b(?:movie|film|tv|television|series|show|sitcom|episode|cartoon|anime|family\s+guy|south\s+park|sponge\s*bob|simpsons?|rick\s+and\s+morty|disney|pixar|netflix|hbo)\b|\b(?:movie|film|tv)\s*clips?\b/;
+  const RAW_SCENE_REPOST_PATTERN = /\b(?:full|best|funny|fight|ending|opening|deleted|iconic|emotional|romantic|sad|final|post\s*credits?|4k|hd|movie|film|tv|show|episode|anime|cartoon)\b.{0,45}\b(?:scene|clip)\b|\b(?:scene|clip)\b.{0,45}\b(?:4k|hd|movie|film|tv|show|episode|part\s*\d+)\b/;
+  const MOVIE_COMMENTARY_PATTERN = /\b(?:trailer|teaser|review|reaction|reacts?|breakdown|analysis|analy[sz](?:e|ed|ing)|explained|explanation|commentary|critique|video\s+essay|behind\s+the\s+scenes|making\s+of|interview|comparison|recap|news|parody|spoiler\s+discussion)\b/;
   const TEXT_OVER_CLIP_PATTERN = /\b(?:text|caption|subtitles?|quote|tweet|twitter\s+post|x\s+post|reddit\s+post|comment)\b.{0,70}\b(?:over|on\s+top\s+of|above|with)\b.{0,70}\b(?:movie|film|cartoon|anime|clip|scene|family\s+guy|south\s+park|sponge\s*bob|simpsons?)\b|\b(?:movie|film|cartoon|anime|clip|scene|family\s+guy|south\s+park|sponge\s*bob|simpsons?)\b.{0,70}\b(?:text|caption|subtitles?|quote|tweet|twitter\s+post|x\s+post|comment)\b/;
   const LOW_QUALITY_EDIT_PATTERN = /\b(?:low\s+quality|lazy|trash|sloppy)\s+edit\b|\b(?:phonk|funk|sigma)\s+edit\b|\b(?:movie|cartoon|anime|clips?|scenes?)\b.{0,45}\bedit\b|\bedit\b.{0,45}\b(?:different\s+clips?|scene\s+pack|movie|cartoon|anime|phonk|funk)\b/;
   const SOCIAL_SCREENSHOT_PATTERN = /\b(?:twitter|x)\s+(?:post|tweet|screenshot|comment|reply)\b|\btweet\b.{0,45}\b(?:comment|reply|screenshot)\b|\b(?:post|screenshot)\b.{0,45}\b(?:with|and)\s+(?:a\s+)?(?:comment|reply)\b/;
@@ -85,10 +92,17 @@
     const hasSyntheticNarration = SYNTHETIC_NARRATION_PATTERN.test(text);
     const hasRecycledContent = RECYCLED_PATTERN.test(text);
     const hasCompilation = COMPILATION_PATTERN.test(text);
-    const hasEngagementBait = ENGAGEMENT_PATTERN.test(text);
+    const hasDirectSubscriberSolicitation = DIRECT_SUBSCRIBER_SOLICITATION_PATTERN.test(text);
+    const hasEngagementBait = hasDirectSubscriberSolicitation || ENGAGEMENT_PATTERN.test(text);
+    const hasDropshippingScheme = DROPSHIPPING_SCHEME_PATTERN.test(text);
+    const hasGetRichQuickClaim = GET_RICH_QUICK_PATTERN.test(text);
+    const hasSalesFunnel = SALES_FUNNEL_PATTERN.test(text);
+    const financeCritiqueProtected = FINANCE_CRITIQUE_PATTERN.test(text);
     const hasSensorySidecar = SENSORY_PATTERN.test(text) && !isMusicContext(text);
     const hasTierRanking = TIER_RANKING_PATTERN.test(text);
-    const hasMovieCartoonClip = MOVIE_CARTOON_CLIP_PATTERN.test(text);
+    const hasMovieCartoonClip = MOVIE_CARTOON_CLIP_PATTERN.test(text) || RAW_SCENE_REPOST_PATTERN.test(text);
+    const movieCommentaryProtected = MOVIE_COMMENTARY_PATTERN.test(text);
+    const hashtagOnlyTitle = isHashtagOnlyTitle(title);
     const hasTextOverClip = TEXT_OVER_CLIP_PATTERN.test(text);
     const hasLowQualityEdit = LOW_QUALITY_EDIT_PATTERN.test(text);
     const hasSocialScreenshot = SOCIAL_SCREENSHOT_PATTERN.test(text);
@@ -124,7 +138,32 @@
       && preferenceEnabled("brainrot", "fully_ai_generated_video");
     const hardAiSynthetic = hardSyntheticNarration || hardAiDisclosure || hardKnownBrainrot;
     const hardFilteredCreator = filteredCreatorTitle && preferenceEnabled("brainrot", "low_originality");
-    const hardLocalSkip = hardAiSynthetic || hardFilteredCreator;
+    const educationalContext = EDUCATIONAL_PATTERN.test(normalize([title, description, transcript].join(" ")))
+      && !hasRagebait
+      && !hasExaggeratedInfo;
+    const hardStoryFarm = hasStory
+      && !educationalContext
+      && preferenceEnabled("fake_stories");
+    const videoFeedItem = ["youtube", "instagram", "tiktok"].includes(parsed.platform)
+      || ["short", "video"].includes(parsed.itemKind);
+    const hardEngagementBait = videoFeedItem
+      && hasDirectSubscriberSolicitation
+      && preferenceEnabled("engagement_bait");
+    const hardFinanceSlop = videoFeedItem
+      && hasDropshippingScheme
+      && hasGetRichQuickClaim
+      && (hasSalesFunnel || /\b(?:with|from)\s+(?:no\s+money|\$?\s*0)\b/.test(text))
+      && !financeCritiqueProtected
+      && preferenceEnabled("finance_schemes");
+    const hardMovieSceneRepost = videoFeedItem
+      && hasMovieCartoonClip
+      && !movieCommentaryProtected
+      && !coreFormatProtected
+      && !streamClipProtected;
+    const hardHashtagOnlyTitle = videoFeedItem && hashtagOnlyTitle;
+    const hardLocalSkip = hardAiSynthetic || hardFilteredCreator || hardStoryFarm
+      || hardEngagementBait || hardFinanceSlop
+      || hardMovieSceneRepost || hardHashtagOnlyTitle;
     const stackedParts = [hasStory, hasBackground, hasSyntheticNarration].filter(Boolean).length;
     const hardStackedFormat = stackedParts >= 2
       && preferenceEnabled("fake_stories", "repetitive_templates", "sidecar_satisfying_asmr", "ai_voice_tts");
@@ -146,7 +185,9 @@
     if (hasRecycledContent && !recycledClipProtected) add("Repost-like or low-originality clips", 25, "recycled_content", ["reposted_stolen", "low_originality"]);
     if (hasCompilation && !streamClipProtected) add("Compilation without original analysis", 24, "compilation", ["compilations", "low_originality"]);
     if (hasTierRanking) add("Tier-list ranking bait", 24, "tier_ranking", ["brainrot", "engagement_bait", "repetitive_templates"]);
-    if (hasMovieCartoonClip && !recycledClipProtected) add("Movie/cartoon clip repost", 30, "movie_cartoon_clip", ["reposted_stolen", "low_originality"]);
+    if (hardMovieSceneRepost) add("Raw movie/TV scene repost", 100, "movie_cartoon_clip", ["reposted_stolen", "low_originality"]);
+    else if (hasMovieCartoonClip && !recycledClipProtected) add("Movie/cartoon clip repost", 30, "movie_cartoon_clip", ["reposted_stolen", "low_originality"]);
+    if (hardHashtagOnlyTitle) add("Hashtag-only title", 100, "hashtag_only_title", ["low_originality", "engagement_bait", "repetitive_templates"]);
     if (hasTextOverClip && !coreFormatProtected) add("Text over unrelated movie/cartoon clip", 35, "text_over_clip", ["low_originality", "sidecar_satisfying_asmr", "reposted_stolen"]);
     if (hasLowQualityEdit && !coreFormatProtected) add("Low-quality phonk/funk edit format", 26, "low_quality_edit", ["low_originality", "repetitive_templates"]);
     if (hasPhonkBackground && !coreFormatProtected) add("Phonk/funk background filler", 22, "phonk_background", ["low_originality", "sidecar_satisfying_asmr"]);
@@ -162,7 +203,9 @@
     if (viralChallengeFactory) add("Manufactured viral challenge format", 34, "viral_challenge_factory", ["brainrot", "engagement_bait", "repetitive_templates"]);
     if (SCAM_PATTERN.test(text)) add("Scam or extreme claim bait", 34, "scam_bait", ["fake_stories", "engagement_bait"]);
     if (CLICKBAIT_PATTERN.test(text)) add("Clickbait wording", 9, null, ["engagement_bait"]);
-    if (hasEngagementBait) add("Engagement bait", 10, null, ["engagement_bait"]);
+    if (hardEngagementBait) add("Direct subscriber solicitation", 100, "engagement_bait", ["engagement_bait"]);
+    else if (hasEngagementBait) add("Engagement bait", 18, null, ["engagement_bait"]);
+    if (hardFinanceSlop) add("Get-rich-quick dropshipping funnel", 100, "finance_scheme", ["finance_schemes"]);
     if (hasSensorySidecar) add("Sensory filler format", 10, null, ["sidecar_satisfying_asmr"]);
     if (hasAiDisclosure) add("AI/synthetic disclosure", 5, null, ["fully_ai_generated_video"]);
     if (emojiCount(text) >= 5) add("Heavy emoji pattern", 5, null, ["engagement_bait", "repetitive_templates"]);
@@ -172,9 +215,7 @@
       ? SLOP_PREFERENCE_API.selectedMatches(selectedSlopPreferences, slopCategories)
       : [...slopCategories];
 
-    const educational = EDUCATIONAL_PATTERN.test(normalize([title, description, transcript].join(" ")))
-      && !hasRagebait
-      && !hasExaggeratedInfo;
+    const educational = educationalContext;
     const informationalText = normalize([title, description, transcript].join(" "));
     const factCheckEligible = ["short", "video"].includes(parsed.itemKind)
       || ["post", "profile", "image"].includes(parsed.itemKind)
@@ -196,6 +237,16 @@
     if (hardLocalSkip) {
       const hardReason = hardFilteredCreator
         ? "Filtered creator preference matched"
+        : hardEngagementBait
+          ? "Direct subscriber solicitation detected"
+          : hardFinanceSlop
+            ? "Get-rich-quick dropshipping funnel detected"
+        : hardStoryFarm
+          ? "Reddit/text-story format detected"
+        : hardMovieSceneRepost
+          ? "Raw movie/TV scene repost detected"
+        : hardHashtagOnlyTitle
+          ? "Hashtag-only title detected"
         : hardKnownBrainrot
           ? "Known AI-brainrot title detected"
           : hardAiDisclosure ? "AI/synthetic content detected" : "Synthetic narration detected";
@@ -212,6 +263,10 @@
         factCheckEligible,
         hardAiSynthetic,
         hardLocalSkip: true,
+        hardEngagementBait,
+        hardFinanceSlop,
+        hardMovieSceneRepost,
+        hardHashtagOnlyTitle,
         hardStackedFormat,
         preferredFormatProtected,
         protectedFormatKind: protectedFormatKind({ coreFormatProtected, streamClipProtected, creatorPersonaProtected }),
@@ -276,6 +331,8 @@
       factCheckEligible,
       hardAiSynthetic: false,
       hardLocalSkip: false,
+      hardEngagementBait,
+      hardFinanceSlop,
       hardStackedFormat,
       preferredFormatProtected,
       protectedFormatKind: protectedFormatKind({ coreFormatProtected, streamClipProtected, creatorPersonaProtected }),
@@ -862,6 +919,16 @@
 
   function cleanText(value, limit) {
     return String(value || "").replace(/\s+/g, " ").trim().slice(0, limit);
+  }
+
+  function isHashtagOnlyTitle(value) {
+    const title = cleanText(value, 500);
+    const hashtags = title.match(/#[\p{L}\p{N}_]+/gu) || [];
+    if (hashtags.length === 0) return false;
+    const remainder = title
+      .replace(/#[\p{L}\p{N}_]+/gu, " ")
+      .replace(/[\p{P}\p{S}\p{Z}\s]+/gu, "");
+    return remainder.length === 0;
   }
 
   function normalize(value) {

@@ -12,17 +12,25 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   const EXPLANATION_TIMEOUT_MS = 180000;
   const OLLAMA_CONCURRENCY = 1;
   const OLLAMA_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-  const DETECTOR_TIMEOUT_MS = 7000;
+  const DETECTOR_TIMEOUT_MS = 120000;
+  const FORCE_HEAVY_FOR_ALL_MEDIA = true;
   const LOCAL_DETECTOR_COALESCE_MS = 20;
   const LOCAL_FAST_DECISION_BUDGET_MS = 1850;
   const DETECTOR_SETTLE_POLL_MS = 80;
-  const HYBRID_CLOUD_TIMEOUT_MS = 4500;
-  const HYBRID_HEAVY_DECISION_BUDGET_MS = 4500;
+  const HYBRID_CLOUD_TIMEOUT_MS = 120000;
+  const HYBRID_HEAVY_DECISION_BUDGET_MS = 120000;
   const HYBRID_HEAVY_READY_TTL_MS = 30000;
   const HYBRID_HEAVY_POLL_MS = 150;
+  const BROWSER_MEDIA_OBSERVATION_TTL_MS = 45_000;
+  const BROWSER_MEDIA_UPLOAD_TTL_MS = 4 * 60_000;
+  const MAX_BROWSER_MEDIA_BYTES = 24 * 1024 * 1024;
+  const MIN_BROWSER_MEDIA_BYTES = 64 * 1024;
+  const BROWSER_MEDIA_FETCH_TIMEOUT_MS = 45_000;
+  const BROWSER_MEDIA_UPLOAD_TIMEOUT_MS = 60_000;
   const FACT_CHECK_TIMEOUT_MS = 1800;
   const DETECTOR_URL = "http://127.0.0.1:4317";
-  const DEFAULT_MODEL = "qwen2.5:1.5b-instruct";
+  const LEGACY_MODEL = "qwen2.5:1.5b-instruct";
+  const DEFAULT_MODEL = "orislop-qwen2.5:1.5b-instruct";
   const DEFAULT_CLOUD_API_URL = "https://api.orislop.com";
   const SETTINGS_KEY = "orislop.extension.settings";
   const CLOUD_ACCESS_KEY = "orislop.cloud.access";
@@ -35,6 +43,9 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   const cloudDecisionIds = new Map();
   const cloudHeavyReadiness = new Map();
   const localDetectorQueues = new Map();
+  const observedMediaByTab = new Map();
+  const browserMediaUploads = new Map();
+  const browserMediaUploadInflight = new Map();
   let ollamaRequestLane = Promise.resolve();
   let localDetectorCapabilityCache = { checkedAt: 0, accelerator: "" };
 
@@ -46,10 +57,27 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   });
   void refreshBadgeFromSettings();
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  chrome.webRequest?.onBeforeRequest?.addListener?.(
+    rememberObservedBrowserMedia,
+    {
+      urls: [
+        "https://*.googlevideo.com/*",
+        "https://*.cdninstagram.com/*",
+        "https://*.fbcdn.net/*",
+        "https://*.tiktokcdn.com/*",
+        "https://*.tiktokv.com/*",
+        "https://*.muscdn.com/*",
+        "https://*.akamaized.net/*"
+      ],
+      types: ["media", "xmlhttprequest", "other"]
+    }
+  );
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === "orislop.scoreBatch") {
       const candidates = Array.isArray(message.candidates) ? message.candidates.slice(0, MAX_BATCH_SIZE) : [];
-      loadRuntimeSettings(message.settings).then((settings) => scoreBatch(candidates, settings))
+      const tabId = Number.isInteger(sender?.tab?.id) ? sender.tab.id : -1;
+      loadRuntimeSettings(message.settings).then((settings) => scoreBatch(candidates, settings, tabId))
         .then(sendResponse)
         .catch((error) => {
           const response = {
@@ -165,7 +193,8 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
     return false;
   });
 
-  async function scoreBatch(candidates, settings) {
+  async function scoreBatch(candidates, settings, tabId = -1) {
+    candidates = await prepareBrowserMediaCandidates(candidates, settings, tabId);
     const performance = getPerformanceProfile(settings);
     const localResults = candidates.map((candidate) => OrislopClassifier.scoreCandidate({
       ...candidate,
@@ -308,24 +337,29 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       .map((candidate, index) => ({ candidate, index }))
       .filter(({ candidate, index }) => textResults[index].hardAiSynthetic !== true && shouldRunVisualDetector(candidate, settings));
     if (eligible.length === 0) return { status: "not_needed", error: "", decisions: new Map(), results: textResults };
-    if (settings.inferenceMode === "hybrid") {
+    if (settings.inferenceMode === "hybrid" && !FORCE_HEAVY_FOR_ALL_MEDIA) {
       return classifyWithHybridDetector(eligible, textResults, settings);
     }
     try {
       const performance = await resolveDetectorPerformance(settings);
+      const performanceProfile = FORCE_HEAVY_FOR_ALL_MEDIA
+        ? "heavy"
+        : eligible.some(({ candidate }) => candidate?.forceHeavyAnalysis === true)
+        ? "heavy"
+        : performance.effective;
       const baseUrl = runtimeApiBase(settings);
       const batch = baseUrl === DETECTOR_URL
         ? await requestLocalDetectorBatchUntilSettled(
           eligible,
-          performance.effective,
+          performanceProfile,
           DETECTOR_TIMEOUT_MS,
-          performance.effective === "fast" ? LOCAL_FAST_DECISION_BUDGET_MS : DETECTOR_TIMEOUT_MS
+          performanceProfile === "fast" ? LOCAL_FAST_DECISION_BUDGET_MS : DETECTOR_TIMEOUT_MS
         )
         : await requestDetectorBatchUntilSettled(
           baseUrl,
           runtimeApiHeaders(settings),
           eligible,
-          performance.effective,
+          performanceProfile,
           DETECTOR_TIMEOUT_MS,
           DETECTOR_TIMEOUT_MS
         );
@@ -383,7 +417,8 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
     if (!initialReadiness.ready || initialReadiness.stale) void refreshCloudHeavyReadiness(settings);
 
     const capabilities = clientCapabilityProfile();
-    const explicitHeavy = normalizePerformanceMode(settings.performanceMode) === "heavy";
+    const explicitHeavy = normalizePerformanceMode(settings.performanceMode) === "heavy"
+      || eligible.some(({ candidate }) => candidate?.forceHeavyAnalysis === true);
     const speculativeItems = explicitHeavy
       && capabilities.localPreprocessing.enabled
       && initialReadiness.ready
@@ -550,6 +585,7 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
           id: String(index),
           url: clean(candidate.url, 2000),
           mediaUrl: clean(candidate.mediaUrl, 4000),
+          mediaUploadId: clean(candidate.mediaUploadId, 80),
           previewUrl: clean(candidate.previewUrl, 4000),
           language: clean(candidate.language, 20) || "unknown",
           priority: Number(candidate.scanPriority) <= 0 ? 0 : 10,
@@ -566,6 +602,148 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       state: payload.state || "pending",
       decisions: new Map(payload.results.map((decision) => [Number(decision.id), decision]))
     };
+  }
+
+  function rememberObservedBrowserMedia(details) {
+    const tabId = Number(details?.tabId);
+    const direct = clean(details?.url, 8000);
+    if (!Number.isInteger(tabId) || tabId < 0 || !isBrowserMediaUrl(direct)) return;
+    const platform = mediaPlatformForUrl(direct);
+    if (!platform || isAudioOnlyMediaUrl(direct)) return;
+    const now = Date.now();
+    const current = (observedMediaByTab.get(tabId) || [])
+      .filter((entry) => now - entry.observedAt <= BROWSER_MEDIA_OBSERVATION_TTL_MS);
+    current.push({ url: direct, platform, observedAt: now, type: clean(details?.type, 30) });
+    observedMediaByTab.set(tabId, current.slice(-80));
+  }
+
+  function mediaPlatformForUrl(value) {
+    try {
+      const host = new URL(value).hostname.toLowerCase();
+      if (host.endsWith(".googlevideo.com")) return "youtube";
+      if (host.endsWith(".cdninstagram.com") || host.endsWith(".fbcdn.net")) return "instagram";
+      if ([".tiktokcdn.com", ".tiktokv.com", ".muscdn.com", ".akamaized.net"].some((suffix) => host.endsWith(suffix))) return "tiktok";
+    } catch {
+      return "";
+    }
+    return "";
+  }
+
+  function isBrowserMediaUrl(value) {
+    try {
+      const parsed = new URL(String(value || ""));
+      return parsed.protocol === "https:" && Boolean(mediaPlatformForUrl(parsed.href));
+    } catch {
+      return false;
+    }
+  }
+
+  function isAudioOnlyMediaUrl(value) {
+    try {
+      const parsed = new URL(value);
+      const mime = decodeURIComponent(parsed.searchParams.get("mime") || "").toLowerCase();
+      return mime.startsWith("audio/") || /\.(?:m4a|mp3|aac|opus)(?:$|[?#])/i.test(parsed.pathname + parsed.search);
+    } catch {
+      return true;
+    }
+  }
+
+  function recentObservedMediaUrl(tabId, platform) {
+    const now = Date.now();
+    const current = (observedMediaByTab.get(tabId) || [])
+      .filter((entry) => now - entry.observedAt <= BROWSER_MEDIA_OBSERVATION_TTL_MS);
+    observedMediaByTab.set(tabId, current);
+    return [...current].reverse().find((entry) => entry.platform === platform)?.url || "";
+  }
+
+  async function prepareBrowserMediaCandidates(candidates, settings, tabId) {
+    if (!Number.isInteger(tabId) || tabId < 0 || runtimeApiBase(settings) !== DETECTOR_URL) return candidates;
+    return Promise.all(candidates.map(async (candidate) => {
+      if (candidate?.forceHeavyAnalysis !== true || candidate?.mediaType !== "video") return candidate;
+      if (Number(candidate.scanPriority) > 0) return candidate;
+      const key = clean(candidate.itemKey || `${candidate.platform}:${candidate.itemId}`, 500);
+      if (!key) return candidate;
+      const cached = browserMediaUploads.get(key);
+      if (cached && cached.expiresAt > Date.now()) return { ...candidate, mediaUploadId: cached.uploadId };
+      if (cached) browserMediaUploads.delete(key);
+      const direct = isBrowserMediaUrl(candidate.mediaUrl)
+        ? candidate.mediaUrl
+        : recentObservedMediaUrl(tabId, clean(candidate.platform, 24));
+      if (!direct) return candidate;
+      let inflight = browserMediaUploadInflight.get(key);
+      if (!inflight) {
+        inflight = proxyBrowserMediaToDetector(direct, candidate.platform)
+          .finally(() => browserMediaUploadInflight.delete(key));
+        browserMediaUploadInflight.set(key, inflight);
+      }
+      try {
+        const upload = await inflight;
+        browserMediaUploads.set(key, { uploadId: upload.uploadId, expiresAt: Date.now() + BROWSER_MEDIA_UPLOAD_TTL_MS });
+        while (browserMediaUploads.size > 100) browserMediaUploads.delete(browserMediaUploads.keys().next().value);
+        return { ...candidate, mediaUrl: direct, mediaUploadId: upload.uploadId };
+      } catch {
+        return candidate;
+      }
+    }));
+  }
+
+  function normalizedBrowserMediaRequest(value) {
+    const parsed = new URL(value);
+    if (parsed.hostname.toLowerCase().endsWith(".googlevideo.com")) {
+      for (const key of ["range", "rn", "rbuf", "ump", "alr"]) parsed.searchParams.delete(key);
+    }
+    return parsed.href;
+  }
+
+  async function proxyBrowserMediaToDetector(directUrl, platform) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), BROWSER_MEDIA_FETCH_TIMEOUT_MS);
+    const chunks = [];
+    let total = 0;
+    let contentType = "application/octet-stream";
+    try {
+      const response = await fetch(normalizedBrowserMediaRequest(directUrl), {
+        method: "GET",
+        headers: { Range: `bytes=0-${MAX_BROWSER_MEDIA_BYTES - 1}` },
+        credentials: "include",
+        cache: "no-store",
+        signal: controller.signal
+      });
+      if (!response.ok && response.status !== 206) throw new Error(`Browser media fetch returned ${response.status}`);
+      contentType = clean(response.headers.get("Content-Type"), 100).split(";", 1)[0].toLowerCase() || contentType;
+      if (contentType.startsWith("audio/")) throw new Error("Captured resource was audio-only");
+      const reader = response.body?.getReader?.();
+      if (!reader) throw new Error("Browser media response was not streamable");
+      while (total < MAX_BROWSER_MEDIA_BYTES) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!(value instanceof Uint8Array) || value.byteLength === 0) continue;
+        const keep = value.byteLength > MAX_BROWSER_MEDIA_BYTES - total
+          ? value.slice(0, MAX_BROWSER_MEDIA_BYTES - total)
+          : value;
+        chunks.push(keep);
+        total += keep.byteLength;
+        if (keep.byteLength < value.byteLength) break;
+      }
+      if (total >= MAX_BROWSER_MEDIA_BYTES) await reader.cancel().catch(() => {});
+    } finally {
+      clearTimeout(timer);
+    }
+    if (total < MIN_BROWSER_MEDIA_BYTES) throw new Error("Captured browser video segment was too small");
+    const uploadResponse = await fetchWithTimeout(`${DETECTOR_URL}/v1/media-upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": contentType,
+        "X-Orislop-Media-Platform": clean(platform, 24),
+        "X-Orislop-Media-Partial": total >= MAX_BROWSER_MEDIA_BYTES ? "1" : "0"
+      },
+      body: new Blob(chunks, { type: contentType })
+    }, BROWSER_MEDIA_UPLOAD_TIMEOUT_MS);
+    const payload = await uploadResponse.json().catch(() => ({}));
+    if (!uploadResponse.ok || payload.ok !== true || !payload.uploadId) {
+      throw new Error(payload.error || `Detector media upload returned ${uploadResponse.status}`);
+    }
+    return { uploadId: clean(payload.uploadId, 80), bytes: total, contentType };
   }
 
   async function requestDetectorBatchUntilSettled(
@@ -914,7 +1092,7 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
     const normalizedConfidence = rawConfidence > 1 ? rawConfidence / 100 : rawConfidence;
     const categories = new Set([
       "educational", "original", "ordinary", "recycled", "story_gameplay", "compilation", "content_farm",
-      "viral_challenge", "scam", "empty_reaction", "engagement_bait", "tier_ranking", "phonk_edit",
+      "viral_challenge", "scam", "finance_scheme", "empty_reaction", "engagement_bait", "tier_ranking", "phonk_edit",
       "movie_text", "social_screenshot", "ragebait", "misinfo_hype", "core_format", "stream_clip", "creator_persona"
     ]);
     const category = categories.has(parsed.category) ? parsed.category : "ordinary";
@@ -931,6 +1109,7 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       content_farm: "Low-value content-farm format",
       viral_challenge: "Manufactured viral challenge format",
       scam: "Scam or manipulative claim bait",
+      finance_scheme: "Get-rich-quick finance funnel",
       empty_reaction: "Empty reaction without original value",
       engagement_bait: "Engagement bait",
       tier_ranking: "Tier-list ranking bait",
@@ -955,13 +1134,14 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   }
 
   async function explainVideo(candidateInput, decisionInput, modeInput, settings) {
-    const candidate = sanitizeExplanationCandidate(candidateInput);
+    const candidate = sanitizeExplanationCandidate(withCachedBrowserMediaUpload(candidateInput));
     const decision = sanitizeExplanationDecision(decisionInput);
     if (!candidate.imageText && decision.factCheck.imageText) candidate.imageText = decision.factCheck.imageText;
     const mode = modeInput === "why_wrong" && decision.factCheck.verdict === "contradicted" ? "why_wrong" : "explain";
     const sourceMaterial = clean([candidate.title, candidate.visibleText, candidate.transcriptText].filter(Boolean).join(" "), 3000);
     const canDevelopTranscript = Boolean(
       candidate.mediaUrl
+      || candidate.mediaUploadId
       || /^https:\/\/(?:www\.|m\.)?(?:youtube\.com|youtu\.be|instagram\.com|tiktok\.com)\//i.test(candidate.url)
     );
     if (sourceMaterial.length < 20 && !canDevelopTranscript) {
@@ -979,8 +1159,10 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       headers,
       body: JSON.stringify({ model, mode, candidate, decision })
     }, EXPLANATION_TIMEOUT_MS);
-    if (!explanationResponse.ok) throw new Error(`Explanation bridge returned ${explanationResponse.status}`);
-    const explanationPayload = await explanationResponse.json();
+    const explanationPayload = await explanationResponse.json().catch(() => ({}));
+    if (!explanationResponse.ok) {
+      throw new Error(explanationPayload.error || `Explanation bridge returned ${explanationResponse.status}`);
+    }
     if (!explanationPayload.ok) throw new Error(explanationPayload.error || "Explanation bridge response was invalid");
     const result = normalizeExplanation(explanationPayload, mode, explanationPayload.sources);
     const response = { ok: true, ...result, cached: false };
@@ -990,17 +1172,12 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   }
 
   async function chatAboutFactCheck(candidateInput, decisionInput, questionInput, historyInput, settings, allowGeneralLinkedIn = false) {
-    const candidate = sanitizeExplanationCandidate(candidateInput);
+    const candidate = sanitizeExplanationCandidate(withCachedBrowserMediaUpload(candidateInput));
     const decision = sanitizeExplanationDecision(decisionInput);
     const generalLinkedIn = allowGeneralLinkedIn === true && candidate.platform === "linkedin";
-    if (!generalLinkedIn && decision.factCheck.verdict !== "contradicted") {
-      return { ok: false, error: "Follow-up questions are available only when trusted evidence contradicts a claim." };
-    }
-    if (!generalLinkedIn && decision.factCheck.sources.length === 0) {
-      return { ok: false, error: "No trusted fact-check sources are available for a grounded answer." };
-    }
+    const generalVideo = !generalLinkedIn && candidate.platform !== "linkedin";
     const question = clean(questionInput, 400);
-    if (question.length < 2) return { ok: false, error: "Enter a question about the checked claim." };
+    if (question.length < 2) return { ok: false, error: generalVideo ? "Enter a question about this video." : "Enter a question about this content." };
     const history = sanitizeChatHistory(historyInput);
     const model = sanitizeModel(settings.ollamaModel);
     const sourceFingerprint = decision.factCheck.sources.map((source) => `${source.url}|${source.rating}|${source.snippet}`).join("|");
@@ -1013,10 +1190,12 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
     const chatResponse = await fetchWithTimeout(`${baseUrl}/v1/explain`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ model, mode: generalLinkedIn ? "chat_linkedin" : "chat", question, history, candidate, decision })
+      body: JSON.stringify({ model, mode: generalLinkedIn ? "chat_linkedin" : generalVideo ? "chat_video" : "chat", question, history, candidate, decision })
     }, EXPLANATION_TIMEOUT_MS);
-    if (!chatResponse.ok) throw new Error(`Fact-check chat bridge returned ${chatResponse.status}`);
-    const payload = await chatResponse.json();
+    const payload = await chatResponse.json().catch(() => ({}));
+    if (!chatResponse.ok) {
+      throw new Error(payload.error || `Video chat bridge returned ${chatResponse.status}`);
+    }
     if (!payload.ok) throw new Error(payload.error || "Fact-check chat response was invalid");
     const result = normalizeFactChat(payload, payload.sources);
     const response = { ok: true, ...result, cached: false };
@@ -1099,6 +1278,7 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       imageText: clean(candidate.imageText, 1800),
       url: /^https:\/\//i.test(String(candidate.url || "")) ? clean(candidate.url, 4000) : "",
       mediaUrl: /^https:\/\//i.test(String(candidate.mediaUrl || "")) ? clean(candidate.mediaUrl, 4000) : "",
+      mediaUploadId: /^[0-9a-f]{32}$/i.test(String(candidate.mediaUploadId || "")) ? clean(candidate.mediaUploadId, 80).toLowerCase() : "",
       language: clean(candidate.language, 20),
       itemKind: ["post", "profile", "image", "short", "video"].includes(candidate.itemKind) ? candidate.itemKind : "post",
       mediaType: ["text", "image", "video"].includes(candidate.mediaType) ? candidate.mediaType : "text",
@@ -1106,6 +1286,17 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
       durationSeconds: Number.isFinite(durationSeconds) && durationSeconds >= 0 ? Math.min(durationSeconds, 86400) : 0,
       playbackPositionSeconds: Number.isFinite(playbackPositionSeconds) && playbackPositionSeconds >= 0 ? Math.min(playbackPositionSeconds, 86400) : 0
     };
+  }
+
+  function withCachedBrowserMediaUpload(value) {
+    const candidate = value && typeof value === "object" ? value : {};
+    const key = clean(candidate.itemKey || `${candidate.platform || ""}:${candidate.itemId || ""}`, 500);
+    const cached = key ? browserMediaUploads.get(key) : null;
+    if (!cached || cached.expiresAt <= Date.now()) {
+      if (cached && key) browserMediaUploads.delete(key);
+      return candidate;
+    }
+    return { ...candidate, mediaUploadId: cached.uploadId };
   }
 
   function sanitizeExplanationDecision(value) {
@@ -1175,7 +1366,7 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
 
   function friendlyExplanationError(error, settings) {
     if (settings?.inferenceMode === "cloud") return friendlyCloudError(error);
-    if (error?.name === "AbortError") return "The explanation took too long. Try again after the context model finishes warming up.";
+    if (error?.name === "AbortError") return "Video chat took too long. Keep the GPU tunnel open and try again after the model finishes warming up.";
     return friendlyOllamaError(error, settings);
   }
 
@@ -1591,9 +1782,20 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   }
 
   function getPerformanceProfile(settings = {}) {
-    const selected = normalizePerformanceMode(settings.performanceMode);
+    const selected = FORCE_HEAVY_FOR_ALL_MEDIA ? "heavy" : normalizePerformanceMode(settings.performanceMode);
     const capabilities = clientCapabilityProfile();
     const { cores, memoryGiB } = capabilities;
+    if (FORCE_HEAVY_FOR_ALL_MEDIA) {
+      return {
+        selected: "heavy",
+        effective: "heavy",
+        cloudEffective: "heavy",
+        cores,
+        memoryGiB,
+        clientPreprocessing: capabilities.localPreprocessing,
+        reason: "Heavy analysis is enforced for every eligible media item."
+      };
+    }
     if (settings.inferenceMode === "cloud") {
       return {
         selected,
@@ -1777,6 +1979,7 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
 
   function sanitizeModel(value) {
     const model = String(value || DEFAULT_MODEL).trim();
+    if (model === LEGACY_MODEL) return DEFAULT_MODEL;
     return /^[a-zA-Z0-9._:/-]{1,100}$/.test(model) ? model : DEFAULT_MODEL;
   }
 
@@ -1788,12 +1991,12 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
     if (settings?.inferenceMode === "cloud") return friendlyCloudError(error);
     if (error?.name === "AbortError") return "Ollama timed out. Local scoring stayed active.";
     const message = error instanceof Error ? error.message : String(error);
-    if (/Ollama returned 403|Context bridge returned 403|Detector bridge returned 403|\b403\b.*Ollama/i.test(message)) {
+    if (/Origin not allowed|Ollama returned 403|Context bridge returned 403|Detector bridge returned 403|\b403\b.*Ollama/i.test(message)) {
       const origin = chrome.runtime?.id ? `chrome-extension://${chrome.runtime.id}` : "this extension origin";
       return `The Orislop companion blocked ${origin}. Reload the latest dist build; if it persists, run pnpm extension-origin:setup and restart only the companion.`;
     }
-    if (/failed to fetch|networkerror/i.test(message)) return "Could not reach Ollama at 127.0.0.1:11434. Local scoring stayed active.";
-    return clean(message, 220) || "Ollama was unavailable. Local scoring stayed active.";
+    if (/failed to fetch|networkerror/i.test(message)) return "Could not reach the Orislop companion at 127.0.0.1:4317. Keep the SSH tunnel window open, then try again.";
+    return clean(message, 220) || "The Orislop companion was unavailable. Fast local scoring stayed active.";
   }
 
   function friendlyCloudError(error) {

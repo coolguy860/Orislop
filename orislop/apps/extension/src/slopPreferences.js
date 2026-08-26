@@ -67,6 +67,12 @@
       category: "receipt_check",
       label: "Misleading claims",
       detail: "Misinformation, exaggerated claims, or media used as weak proof."
+    },
+    {
+      id: "finance_schemes",
+      category: "receipt_check",
+      label: "Get-rich-quick schemes",
+      detail: "Dropshipping, passive-income, and finance funnels built around implausible earnings claims."
     }
   ]);
   const CATEGORY_DEFINITIONS = Object.freeze([
@@ -101,7 +107,8 @@
     compilation: ["compilations", "reposted_stolen", "low_originality"],
     content_farm: ["brainrot", "repetitive_templates", "low_originality"],
     viral_challenge: ["brainrot", "engagement_bait", "repetitive_templates"],
-    scam: ["fake_stories", "engagement_bait"],
+    scam: ["fake_stories", "engagement_bait", "finance_schemes"],
+    finance_scheme: ["finance_schemes", "engagement_bait", "misleading_synthetic_media"],
     empty_reaction: ["low_originality"],
     engagement_bait: ["engagement_bait"],
     tier_ranking: ["brainrot", "engagement_bait", "repetitive_templates"],

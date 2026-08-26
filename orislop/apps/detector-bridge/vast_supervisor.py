@@ -25,6 +25,16 @@ from typing import Any, Mapping, Sequence
 import urllib.error
 import urllib.request
 
+BRIDGE_ROOT = Path(__file__).resolve().parent
+if str(BRIDGE_ROOT) not in sys.path:
+    sys.path.insert(0, str(BRIDGE_ROOT))
+from deployment_runtime import (
+    GIB,
+    calculate_storage_plan,
+    choose_ollama_placement,
+    classify_cuda_gpu,
+)
+
 
 APP_ROOT = Path(os.environ.get("ORISLOP_APP_ROOT", "/app"))
 MODEL_ROOT = Path(os.environ.get("ORISLOP_MODEL_ROOT", "/models"))
@@ -58,7 +68,6 @@ DETECTOR_ENV_KEYS = {
     "DATABASE_URL",
     "HF_HOME",
     "HF_HUB_CACHE",
-    "HF_TOKEN",
     "TRANSFORMERS_CACHE",
     "TORCH_HOME",
     "BRAVE_SEARCH_API_KEY",
@@ -85,6 +94,7 @@ REQUIRED_CLOUD_SETTINGS = (
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 DIRECT_TESTING_ACK = "I_UNDERSTAND_PORT_4317_MUST_NOT_BE_PUBLIC"
+PUBLIC_MAPPED_ACK = "I_UNDERSTAND_PUBLIC_PORT_REQUIRES_AUTH"
 
 FULL_STACK_PATHS = {
     "ORISLOP_AV_JOINT_MODEL_PATH": "joint AV TorchScript model",
@@ -248,16 +258,32 @@ def validate_configuration(
 
     if require_tunnel and not env.get("CLOUDFLARE_TUNNEL_TOKEN", "").strip():
         errors.append("CLOUDFLARE_TUNNEL_TOKEN is required unless direct testing is explicitly enabled")
+    public_mapped = enabled(env.get("ORISLOP_PUBLIC_MAPPED_MODE"), default=False)
+    if require_tunnel and public_mapped:
+        errors.append("Choose either Cloudflare tunnel mode or public mapped-port mode, not both")
     if not require_tunnel:
         acknowledgement = env.get("ORISLOP_VAST_DIRECT_TESTING_ACK", "")
-        if acknowledgement != DIRECT_TESTING_ACK:
-            errors.append(
-                "Direct testing requires ORISLOP_VAST_DIRECT_TESTING_ACK="
-                + DIRECT_TESTING_ACK
-            )
         detector_host = env.get("ORISLOP_DETECTOR_HOST", "127.0.0.1").strip().lower()
-        if detector_host not in LOOPBACK_HOSTS:
-            errors.append("Direct testing must bind ORISLOP_DETECTOR_HOST to loopback only")
+        if public_mapped:
+            if acknowledgement != PUBLIC_MAPPED_ACK:
+                errors.append(
+                    "Public mapped-port mode requires ORISLOP_VAST_DIRECT_TESTING_ACK="
+                    + PUBLIC_MAPPED_ACK
+                )
+            if detector_host in LOOPBACK_HOSTS:
+                errors.append("Public mapped-port mode must explicitly bind a non-loopback detector host")
+            if not token:
+                errors.append("Public mapped-port mode requires ORISLOP_API_TOKENS authentication")
+            if not enabled(env.get("ORISLOP_REQUIRE_API_AUTH"), default=True):
+                errors.append("Public mapped-port mode may not disable API authentication")
+        else:
+            if acknowledgement != DIRECT_TESTING_ACK:
+                errors.append(
+                    "Direct testing requires ORISLOP_VAST_DIRECT_TESTING_ACK="
+                    + DIRECT_TESTING_ACK
+                )
+            if detector_host not in LOOPBACK_HOSTS:
+                errors.append("Private direct testing must bind ORISLOP_DETECTOR_HOST to loopback only")
 
     ollama_model = env.get("ORISLOP_OLLAMA_MODEL", "qwen2.5:1.5b-instruct")
     if not MODEL_NAME_RE.fullmatch(ollama_model):
@@ -304,19 +330,25 @@ def validate_configuration(
 
 def parse_gpu_csv(line: str) -> dict[str, Any]:
     parts = [part.strip() for part in line.split(",")]
-    if len(parts) < 3:
+    if len(parts) < 4:
         raise PreflightError(f"Unexpected nvidia-smi output: {line!r}")
     try:
         memory_mib = int(float(parts[1]))
+        free_memory_mib = int(float(parts[2]))
     except ValueError as error:
-        raise PreflightError(f"Invalid GPU memory value: {parts[1]!r}") from error
-    return {"name": parts[0], "memory_mib": memory_mib, "driver": parts[2]}
+        raise PreflightError(f"Invalid GPU memory value: {parts[1:3]!r}") from error
+    return {
+        "name": parts[0],
+        "memory_mib": memory_mib,
+        "free_memory_mib": free_memory_mib,
+        "driver": parts[3],
+    }
 
 
 def query_gpu() -> dict[str, Any]:
     command = [
         "nvidia-smi",
-        "--query-gpu=name,memory.total,driver_version",
+        "--query-gpu=name,memory.total,memory.free,driver_version",
         "--format=csv,noheader,nounits",
     ]
     try:
@@ -327,6 +359,22 @@ def query_gpu() -> dict[str, Any]:
     if len(lines) != 1:
         raise PreflightError(f"Expected exactly one visible GPU, found {len(lines)}")
     return parse_gpu_csv(lines[0])
+
+
+def query_cuda_runtime() -> dict[str, Any]:
+    try:
+        import torch
+    except Exception as error:
+        return {"available": False, "device_count": 0, "capability": None, "error": str(error)}
+    available = bool(torch.cuda.is_available())
+    count = int(torch.cuda.device_count()) if available else 0
+    capability = tuple(int(value) for value in torch.cuda.get_device_capability(0)) if count else None
+    return {
+        "available": available,
+        "device_count": count,
+        "capability": capability,
+        "torch_cuda": str(getattr(torch.version, "cuda", "") or ""),
+    }
 
 
 def system_ram_gib() -> float:
@@ -341,18 +389,18 @@ def system_ram_gib() -> float:
 
 
 def choose_ollama_device(requested: str, gpu_memory_mib: int) -> str:
-    normalized = requested.strip().lower()
-    if normalized in {"cpu", "gpu"}:
-        return normalized
-    if normalized != "auto":
-        raise PreflightError("ORISLOP_OLLAMA_DEVICE must be auto, cpu, or gpu")
-    # Preserve the 24 GB card for the temporal/spatial ensemble.  Qwen 1.5B is
-    # inexpensive on CPU, while a detector OOM would break the entire request.
-    return "gpu" if gpu_memory_mib >= 32 * 1024 else "cpu"
+    """Backward-compatible pure wrapper used by older callers/tests."""
+    support = {
+        "supported": True,
+        "memory_mib": gpu_memory_mib,
+        "free_memory_mib": gpu_memory_mib,
+    }
+    return choose_ollama_placement(requested, support)["device"]
 
 
 def hardware_preflight(env: Mapping[str, str]) -> dict[str, Any]:
     gpu = query_gpu()
+    cuda = query_cuda_runtime()
     cpu_count = os.cpu_count() or 0
     ram_gib = system_ram_gib()
     MODEL_ROOT.mkdir(parents=True, exist_ok=True)
@@ -361,28 +409,58 @@ def hardware_preflight(env: Mapping[str, str]) -> dict[str, Any]:
     min_vram_gib = float(env.get("ORISLOP_PREFLIGHT_MIN_VRAM_GIB", "20"))
     min_ram_gib = float(env.get("ORISLOP_PREFLIGHT_MIN_RAM_GIB", "24"))
     min_cpu = int(env.get("ORISLOP_PREFLIGHT_MIN_CPU", "8"))
-    min_disk_gib = float(env.get("ORISLOP_PREFLIGHT_MIN_DISK_FREE_GIB", "25"))
+    minimum_capability = tuple(
+        int(part) for part in env.get("ORISLOP_PREFLIGHT_MIN_CUDA_CAPABILITY", "7.0").split(".", 1)
+    )
+    gpu_support = classify_cuda_gpu(
+        gpu,
+        cuda,
+        minimum_vram_mib=int(min_vram_gib * 1024),
+        minimum_capability=minimum_capability,
+    )
+    storage = calculate_storage_plan(
+        release_bytes=int(env.get("ORISLOP_EXPECTED_RELEASE_BYTES", "2794404210")),
+        verified_bytes=int(env.get("ORISLOP_VERIFIED_MODEL_BYTES", "0")),
+        dependencies_bytes=int(float(env.get("ORISLOP_STORAGE_DEPENDENCIES_GIB", "0")) * GIB),
+        scratch_bytes=int(float(env.get("ORISLOP_VIDEO_SCRATCH_GIB", "4")) * GIB),
+        safety_reserve_bytes=int(float(env.get("ORISLOP_STORAGE_SAFETY_GIB", "5")) * GIB),
+    )
 
     errors: list[str] = []
-    if gpu["memory_mib"] < min_vram_gib * 1024:
-        errors.append(f"GPU has {gpu['memory_mib'] / 1024:.1f} GiB; {min_vram_gib:.1f} GiB required")
+    errors.extend(gpu_support["reasons"])
     if ram_gib < min_ram_gib:
         errors.append(f"System has {ram_gib:.1f} GiB RAM; {min_ram_gib:.1f} GiB required")
     if cpu_count < min_cpu:
         errors.append(f"System has {cpu_count} CPUs; {min_cpu} required")
-    if disk_free_gib < min_disk_gib:
-        errors.append(f"Only {disk_free_gib:.1f} GiB disk is free; {min_disk_gib:.1f} GiB required")
+    if disk.free < storage["required_free_bytes"]:
+        errors.append(
+            f"Only {disk_free_gib:.1f} GiB disk is free; the manifest-aware plan needs "
+            f"{storage['required_free_bytes'] / GIB:.1f} GiB. Vast disks cannot be resized; "
+            "rent 80 GiB minimum and 100 GiB preferred"
+        )
     if errors:
         raise PreflightError("Hardware preflight failed: " + "; ".join(errors))
 
-    ollama_device = choose_ollama_device(env.get("ORISLOP_OLLAMA_DEVICE", "auto"), gpu["memory_mib"])
+    try:
+        ollama = choose_ollama_placement(
+            env.get("ORISLOP_OLLAMA_DEVICE", "auto"),
+            gpu_support,
+            detector_reserve_mib=int(float(env.get("ORISLOP_DETECTOR_VRAM_RESERVE_GIB", "18")) * 1024),
+            ollama_budget_mib=int(float(env.get("ORISLOP_OLLAMA_VRAM_BUDGET_GIB", "3")) * 1024),
+        )
+    except ValueError as error:
+        raise PreflightError(str(error)) from error
     return {
         "gpu": gpu,
+        "cuda": cuda,
+        "gpu_support": gpu_support,
         "cpu_count": cpu_count,
         "ram_gib": round(ram_gib, 1),
         "disk_free_gib": round(disk_free_gib, 1),
-        "ollama_device": ollama_device,
-        "recommended_gpu": "RTX 3090" in gpu["name"],
+        "storage_plan": storage,
+        "ollama_device": ollama["device"],
+        "ollama_reason": ollama["reason"],
+        "recommended_gpu": gpu_support["supported"],
     }
 
 
@@ -456,11 +534,12 @@ def wait_for_url(
 def child_environment(env: Mapping[str, str], hardware: Mapping[str, Any]) -> dict[str, str]:
     child = dict(env)
     require_tunnel = enabled(env.get("ORISLOP_REQUIRE_CLOUDFLARE"), default=True)
-    direct_testing = not require_tunnel
+    public_mapped = enabled(env.get("ORISLOP_PUBLIC_MAPPED_MODE"), default=False)
+    private_direct = not require_tunnel and not public_mapped
     child.update({
-        "ORISLOP_DETECTOR_HOST": "127.0.0.1" if direct_testing else "0.0.0.0",
+        "ORISLOP_DETECTOR_HOST": "127.0.0.1" if private_direct else "0.0.0.0",
         "ORISLOP_DETECTOR_PORT": env.get("ORISLOP_DETECTOR_PORT", "4317"),
-        "ORISLOP_REQUIRE_API_AUTH": "0" if direct_testing else "1",
+        "ORISLOP_REQUIRE_API_AUTH": "0" if private_direct else "1",
         "ORISLOP_ALLOW_ORIGINLESS_POSTS": "0",
         "ORISLOP_CLOUD_HEAVY_ENABLED": "1",
         "ORISLOP_CLOUD_HEAVY_DEVICE": "cuda",
@@ -584,13 +663,21 @@ def prepare_ollama(env: Mapping[str, str], hardware: Mapping[str, Any]) -> tuple
         if status != 200 or not isinstance(response, dict):
             raise PreflightError(f"Ollama warmup failed with HTTP {status}: {response!r}")
         return process, ollama_env
-    except Exception:
+    except Exception as error:
         if process.poll() is None:
             process.terminate()
             try:
                 process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 process.kill()
+        requested = env.get("ORISLOP_OLLAMA_DEVICE", "auto").strip().lower()
+        if requested == "auto" and hardware.get("ollama_device") == "gpu":
+            reason = f"GPU warmup failed ({type(error).__name__}); retrying Ollama on CPU without stopping detector startup"
+            log("Ollama GPU fallback", reason=reason)
+            if isinstance(hardware, dict):
+                hardware["ollama_device"] = "cpu"
+                hardware["ollama_reason"] = reason
+            return prepare_ollama({**env, "ORISLOP_OLLAMA_DEVICE": "cpu"}, hardware)
         raise
 
 
@@ -628,7 +715,7 @@ def run_supervisor(env: Mapping[str, str]) -> int:
     if configuration_errors:
         raise PreflightError("Configuration preflight failed:\n- " + "\n- ".join(configuration_errors))
     hardware = hardware_preflight(env)
-    write_status("preflight-passed", started_at=started_at, hardware=hardware)
+    write_status("environment-validation", started_at=started_at, state="starting", hardware=hardware)
 
     resolved_env = materialize_full_stack_artifacts(env)
     configuration_errors = validate_configuration(resolved_env, check_model_path=True)
@@ -648,13 +735,17 @@ def run_supervisor(env: Mapping[str, str]) -> int:
     signal.signal(signal.SIGINT, request_stop)
 
     try:
+        write_status("model-loading", started_at=started_at, state="starting", component="ollama")
         ollama, _ = prepare_ollama(child_env, hardware)
         processes.append(("ollama", ollama))
         write_status(
-            "ollama-ready",
+            "model-loading",
             started_at=started_at,
+            state="starting",
+            component="detector",
             model=child_env.get("ORISLOP_OLLAMA_MODEL", "qwen2.5:1.5b-instruct"),
             device=hardware["ollama_device"],
+            device_reason=hardware.get("ollama_reason", ""),
         )
 
         tunnel_token = child_env.get("CLOUDFLARE_TUNNEL_TOKEN", "").strip()
@@ -694,7 +785,7 @@ def run_supervisor(env: Mapping[str, str]) -> int:
         except Exception:
             log("detector readiness diagnostics", health=diagnostic_health(child_env))
             raise
-        write_status("ready", started_at=started_at, hardware=hardware, port=int(port))
+        write_status("ready", started_at=started_at, state="ready", hardware=hardware, port=int(port))
 
         while not stopping:
             for name, process in processes:
@@ -746,6 +837,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_supervisor(env)
     except (PreflightError, subprocess.CalledProcessError, ValueError, OSError) as error:
         log("fatal", error=str(error))
+        try:
+            write_status(
+                "failed",
+                started_at=time.monotonic(),
+                state="failed",
+                detail=str(error),
+            )
+        except OSError:
+            pass
         return 1
 
 

@@ -2,71 +2,80 @@
 
 ## Product name
 
-Orislop Shield
+Orislop
 
 ## Summary
 
-Privacy-conscious local or cloud intelligence that removes low-value and synthetic content before it reaches your feed.
+Automatically filter AI clips, reposts, engagement bait, and repetitive videos from YouTube and Shorts.
 
 ## Detailed description
 
-Orislop Shield protects your attention across YouTube, Instagram Reels, TikTok, and LinkedIn. It quietly examines upcoming feed items without scrolling, uses context intelligence to distinguish useful content from empty slop, and verifies visual authenticity with a lightweight-first detector pipeline. Users can choose the local companion or the authenticated Orislop Cloud service.
+Orislop is a focused YouTube cleanup extension. It starts filtering as soon as it is installed—there is no onboarding flow, no prompt to start, and no filter-building required.
 
-What Orislop does:
+Orislop scans YouTube videos and Shorts as you browse. It uses visible context plus the Orislop companion's Heavy visual pipeline to identify low-value or synthetic content before it wastes your time.
 
-- Keeps education, tutorials, reporting, original analysis, art, music, comedy, and ordinary personal videos visible.
-- Removes recycled clips, content farms, unrelated-gameplay narration, empty compilations, scams, and engagement bait when the selected inference service identifies them as slop.
-- Treats explicit or strongly detected synthetic media as a Skip decision.
-- Starts with a fast fixed decision while deeper models load; ready Heavy applies only to new items, so cards never flip.
-- Defaults to Automatic performance selection: weaker local PCs use Fast lightweight detection, powerful PCs use the full Heavy pipeline, and either choice can be overridden.
-- Checks informational claims against current trusted sources and published fact-check records when a private provider key is configured.
-- Explains the current video from its available captions and transcript, and explains source-backed contradiction decisions with direct evidence links.
-- Annotates LinkedIn posts and profiles with claim, image-text, and advisory AI-writing checks plus grounded follow-up chat.
-- Defers LinkedIn AI-video detection until the user opens or plays the video; a thumbnail alone never becomes an AI-video verdict.
-- Never auto-scrolls your feed.
-- Lets you override any current decision with Don't skip.
-- Blocks both picture and audio behind a Skip cover until the user overrides it.
-- Shows an ON/OFF toolbar badge, a brief in-page scan confirmation, and a Live Scanner in the popup so users can tell that protection is running.
-- Stores settings, protected activity, and known skipped runtime only in your browser profile, then displays the resulting time saved.
+What Orislop filters:
 
-Local mode requires the free Ollama runtime and Orislop detector companion. Cloud mode requires no local models and sends disclosed feed text plus supported public page/media references to `api.orislop.com` for inference. Orislop does not use behavioral advertising or sell user data. Configured fact checks send extracted claim queries to the selected evidence provider.
+- AI-generated or manipulated video and synthetic narration
+- Reposts, clip farms, thin edits, and empty compilations
+- Engagement bait, fake urgency, rankings, and copy-paste formats
+- Texting stories, Reddit stories, unrelated split-screen footage, and repetitive Shorts
+- Misleading get-rich-quick, passive-income, and dropshipping funnels
+
+What stays visible:
+
+- Tutorials, education, reporting, original analysis, art, music, comedy, and ordinary personal videos
+- Videos Orislop is not confident enough to filter
+- Anything you choose to reveal with the Show action
+
+The MVP supports YouTube and YouTube Shorts only. It does not run on Instagram, TikTok, LinkedIn, or unrelated websites. The Explain video option has been removed so the in-feed experience stays simple. A filtered item shows only Show and Hide.
+
+Full Heavy analysis requires the Orislop companion to be running on the user's device. The extension itself has no setup screens; once the companion is available, filtering begins automatically. Settings and activity remain in the user's browser profile. Orislop does not use behavioral advertising or sell user data.
+
+## Single purpose
+
+Orislop's single purpose is to automatically identify and filter low-value or synthetic videos from YouTube and YouTube Shorts.
 
 ## Permission justifications
 
 ### Storage
 
-Stores the protection toggle, selected local model name, performance preference, local engine status, non-sensitive scanner counts/state, user overrides, recent protected activity, and video duration/time-saved values in the user's browser profile. Scanner state includes the supported platform, visible-item count, unique checked-item count, and timestamp—not captions or titles. Automatic performance selection reads only coarse browser-provided logical-thread and memory hints; it does not benchmark or fingerprint the device.
+Stores the protection toggle, filter preferences, local engine status, user overrides, and recent filtered activity in the user's Chrome profile.
 
-### YouTube, Instagram, TikTok, and LinkedIn hosts
+### YouTube hosts
 
-Reads only visible feed metadata, captions, post/profile text, image alt text, media URLs, and media containers needed to score or annotate supported feed items. Orislop does not read unrelated websites.
+Reads visible YouTube and YouTube Shorts metadata, captions, media URLs, and video containers needed to score and filter the current feed. Orislop does not request access to unrelated websites.
+
+### googlevideo.com
+
+Observes YouTube's video delivery requests so the local companion can analyze the same public video the user is viewing.
 
 ### 127.0.0.1 and localhost on port 4317
 
-Connects only to the local Orislop companion. The companion brokers local Ollama context scoring and visual detection on loopback, so the extension never grants browser-level access to Ollama's port. This permission does not grant access to remote internet hosts.
+Connects only to the Orislop companion on the user's device. The companion brokers local context scoring and Heavy visual detection. This permission does not grant access to a remote internet host.
 
-### api.orislop.com
+### webRequest
 
-When the user selects Orislop Cloud, sends supported page/media references, titles, creator names, visible captions or metadata, and transcript excerpts to the authenticated Orislop inference API. The permission is not used in local mode.
+Observes YouTube media requests so Heavy analysis can receive the correct video bytes. Orislop does not block or rewrite unrelated requests.
 
 ## Privacy disclosure
 
 - No sale or transfer of user data
 - No advertising or behavioral analytics
 - No remote code execution
-- No collection of site cookies, site passwords, private messages, or general browsing history
-- Local mode keeps feed metadata and temporary media on the user's device
-- Cloud mode sends only the disclosed supported-feed fields to `api.orislop.com`; bounded in-memory caches expire automatically
-- Extracted informational claims are sent to the configured search provider only when source verification is enabled
-- Evidence-provider API keys stay in the local companion or cloud secret manager and are never exposed to the extension
-- Temporary detector media is deleted after analysis
-- Activity history can be cleared from the popup
+- No collection of cookies, passwords, private messages, or general browsing history
+- No access to Instagram, TikTok, LinkedIn, or unrelated websites
+- Feed settings and activity stay in Chrome extension storage
+- Temporary companion media is deleted after analysis
+- Users can clear local Orislop data from the popup
 
 ## Store media checklist
 
-- 128 × 128 store icon from `apps/extension/src/icons/icon128.png`
-- At least one 1280 × 800 or 640 × 400 screenshot
-- Recommended screenshots: protected dashboard, hidden-video cover, Fast-to-Heavy readiness handoff, activity and diagnostics panel
-- Optional 1400 × 560 promotional tile using the black/gold Orislop Shield visual system
+- 128 x 128 store icon from `apps/extension/src/icons/icon128.png`
+- At least one 1280 x 800 or 640 x 400 screenshot
+- Recommended screenshot 1: YouTube with a filtered Short showing only Show and Hide
+- Recommended screenshot 2: the compact Orislop popup showing automatic protection active
+- Recommended screenshot 3: recent filtering activity
+- Optional 1400 x 560 promotional tile using the Orislop orange-and-blue identity
 
-Do not submit screenshots containing another user's account name, private recommendations, or browsing history.
+Do not submit screenshots containing another user's account name, private recommendations, browsing history, or a Heavy-ready claim unless the companion is actually online in that screenshot.

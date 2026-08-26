@@ -38,15 +38,12 @@ run("Detector bridge", python, [
 run("Temporal Colab pipeline", python, [path.join(repoRoot, "training", "orislop_temporal_retrain", "tests", "test_cached_fusion_pipeline.py")]);
 
 run("Production web build", process.execPath, [path.join(repoRoot, "scripts", "buildWebStatic.mjs")]);
-run("Chrome Web Store package", process.execPath, [path.join(repoRoot, "scripts", "createExtensionZip.mjs")]);
-run("Chrome Web Store assets", process.execPath, [path.join(repoRoot, "scripts", "verifyWebStoreAssets.mjs")]);
 run("Static deploy package", process.execPath, [path.join(repoRoot, "scripts", "createNamecheapZip.mjs")]);
 run("Release integrity manifest", process.execPath, [path.join(repoRoot, "scripts", "createReleaseManifest.mjs")]);
 run("Release verification", process.execPath, [path.join(repoRoot, "scripts", "verifyReleaseArtifacts.mjs")]);
 
 const manifest = JSON.parse(readFileSync(path.join(repoRoot, "apps", "extension", "manifest.json"), "utf8"));
-if (manifest.version !== "1.3.0" || manifest.name !== "Orislop Shield") throw new Error("Production extension identity is not locked");
-if (Object.hasOwn(manifest, "key")) throw new Error('Production extension manifest contains forbidden "key" field');
+if (manifest.version !== "1.4.0" || manifest.name !== "Orislop") throw new Error("Production extension identity is not locked");
 if (Object.values(manifest.icons).some((value) => !value.endsWith(".png"))) throw new Error("Chrome manifest still references a non-raster icon");
 
 console.log("\nOrislop production readiness checks passed.");

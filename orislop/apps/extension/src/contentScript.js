@@ -14,6 +14,8 @@
   const ITEM_KEY_ATTR = "data-orislop-item-key";
   const SCORE_BATCH_SIZE = 10;
   const LINKEDIN_LOOKAHEAD_LIMIT = 100;
+  const SHORT_FORM_LOOKAHEAD_LIMIT = 6;
+  const SAVED_SECONDS_PER_SKIP = 20;
   const MAX_LOCAL_BACKGROUND_CONCURRENCY = 2;
   const MAX_CLOUD_BACKGROUND_CONCURRENCY = 4;
   const BACKGROUND_BATCH_YIELD_MS = 24;
@@ -23,21 +25,24 @@
   const DETECTOR_PENDING_POLL_MS = 350;
   const DETECTOR_PROVISIONAL_POLL_MS = 700;
   const CONTEXT_PENDING_POLL_MS = 600;
-  const OLLAMA_RESPONSE_TIMEOUT_MS = 105000;
+  const OLLAMA_RESPONSE_TIMEOUT_MS = 185000;
   const ORISLOP_UI_SELECTOR = ".orislop-live-indicator, .orislop-prescan-cover, .orislop-decision-cover, .orislop-explain-button, .orislop-linkedin-trust-button, .orislop-explanation-panel, .orislop-fact-sources";
+  const LEGACY_OLLAMA_MODEL = "qwen2.5:1.5b-instruct";
+  const ORISLOP_OLLAMA_MODEL = "orislop-qwen2.5:1.5b-instruct";
   const SLOP_PREFERENCE_API = globalThis.OrislopSlopPreferences;
   const DEFAULT_SLOP_PREFERENCES = SLOP_PREFERENCE_API?.defaultIds || [];
   const DEFAULT_SETTINGS = {
     enabled: true,
     hideSkipped: true,
-    ollamaModel: "qwen2.5:1.5b-instruct",
+    ollamaModel: ORISLOP_OLLAMA_MODEL,
     inferenceMode: "local",
     performanceMode: "heavy",
-    watchIntentComplete: false,
+    watchIntentComplete: true,
     slopPreferences: [...DEFAULT_SLOP_PREFERENCES]
   };
 
   let settingsCache = { ...DEFAULT_SETTINGS };
+  let explanationPanelSequence = 0;
   let scanTimer = 0;
   let scanInFlight = false;
   let scanQueued = false;
@@ -65,6 +70,7 @@
       isSponsoredCandidate,
       platformAdapters: globalThis.OrislopPlatformAdapters,
       extractCandidate: (element, platform) => extractCandidate(element, platform),
+      findRecentDirectMediaResource,
       findMediaHost,
       calculateSavedSeconds,
       createScoringBatches,
@@ -73,13 +79,14 @@
       scanPriorityForElement,
       shouldShieldCandidate,
       shouldRefreshDecision,
+      isDecisionTerminal,
       explanationModeForDecision,
-      factCheckControlLabel,
       linkedInTrustLabel,
       renderPageScanIndicator,
       restoreReusedCandidateElements,
+      findCandidateRootForVideo,
+      findVisibleVideo,
       showDecisionCover,
-      showExplainControl,
       suppressPlayback,
       releaseSuppressedPlayback,
       enforcePlaybackSuppression,
@@ -106,7 +113,12 @@
 
     new MutationObserver((records) => {
       if (records.some(hasExternalMutation)) scheduleScan();
-    }).observe(document.documentElement, { childList: true, subtree: true });
+    }).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["src", "href", "poster", "data-e2e", "data-video-id", "aria-label"]
+    });
     window.addEventListener("scroll", scheduleScan, { passive: true });
     window.addEventListener("popstate", scheduleScan, { passive: true });
     window.addEventListener("yt-navigate-finish", scheduleScan, { passive: true });
@@ -117,6 +129,9 @@
     }, { passive: true });
     document.addEventListener("play", enforcePlaybackSuppression, true);
     document.addEventListener("play", rememberOpenedLinkedInVideo, true);
+    for (const mediaEvent of ["loadedmetadata", "emptied", "durationchange", "playing"]) {
+      document.addEventListener(mediaEvent, scheduleScan, true);
+    }
     document.addEventListener("click", rememberOpenedLinkedInVideoClick, true);
     document.addEventListener("volumechange", enforcePlaybackSuppression, true);
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -220,7 +235,7 @@
       const visibleCount = loadedCandidates.filter(({ element }) => isInViewport(element)).length;
       for (const { element, candidate, current, scanPriority } of loadedCandidates) {
         if (!(element instanceof HTMLElement) || element.getAttribute(PROCESSED_ATTR) === "allowed") continue;
-        if (!candidate.itemKey || (!candidate.title && candidate.visibleText.length < 20)) continue;
+        if (!candidate.itemKey || (!current && !candidate.title && candidate.visibleText.length < 20)) continue;
         scanEntries.push({ element, candidate, current, scanPriority });
         observedItemKeys.add(candidate.itemKey);
         while (observedItemKeys.size > 1000) observedItemKeys.delete(observedItemKeys.values().next().value);
@@ -427,7 +442,17 @@
     return shouldRefreshForOllama || shouldRefreshForDetector || shouldRefreshForFactCheck;
   }
 
+  function isDecisionTerminal(decision, candidate) {
+    if (decision?.hardLocalSkip === true || decision?.hardAiSynthetic === true) return true;
+    const detectorSettled = !["pending", "provisional"].includes(decision?.detectorStatus);
+    const contextSettled = !hasTranscriptForOllama(candidate)
+      || ["available", "bypassed_hard_ai", "bypassed_hard_preference", "no_text"].includes(decision?.ollamaStatus);
+    const factCheckSettled = decision?.factCheckEligible !== true || decision?.factCheckStatus !== "pending";
+    return detectorSettled && contextSettled && factCheckSettled;
+  }
+
   function hasExternalMutation(record) {
+    if (record?.type === "attributes") return !isOrislopUiNode(record.target);
     const changed = [...(record.addedNodes || []), ...(record.removedNodes || [])];
     return changed.some((node) => !isOrislopUiNode(node));
   }
@@ -448,11 +473,11 @@
         applyDecision(element, candidate, previous);
         continue;
       }
-      const contextComplete = ["available", "bypassed_hard_ai", "no_text"].includes(decision.ollamaStatus);
+      const contextComplete = ["available", "bypassed_hard_ai", "bypassed_hard_preference", "no_text"].includes(decision.ollamaStatus);
       const now = Date.now();
       const stableDecision = {
         ...decision,
-        decisionLocked: true,
+        decisionLocked: isDecisionTerminal(decision, candidate),
         decisionOwner: cleanText(
           decision.detectorDecision?.decisionOwner
             || (decision.hardAiSynthetic === true ? "explicit_ai_or_fast_policy" : "local_fast"),
@@ -504,7 +529,7 @@
 
   async function publishScanStatus(update, force = false) {
     const platform = currentPlatform();
-    const supported = ["youtube", "instagram", "tiktok", "linkedin"].includes(platform);
+    const supported = platform === "youtube";
     const merged = { ...latestScanProgress, ...update };
     const status = {
       state: settingsCache.enabled ? (merged.state || "active") : "paused",
@@ -567,18 +592,20 @@
       const hasPipelineProgress = status?.fastCheckedCount !== undefined
         || status?.loadedCount !== undefined
         || status?.deepQueuedCount !== undefined;
+      void fastCheckedCount;
+      void deepProcessedCount;
+      void deepQueuedCount;
+      void hasPipelineProgress;
       copy.textContent = status?.state === "scanning"
-        ? hasPipelineProgress
-          ? `Fast ${fastCheckedCount}/${loadedCount} | Deep ${deepProcessedCount}/${deepQueuedCount}`
-          : `Orislop is checking ${loadedCount} ${platformItemNoun(currentPlatform(), loadedCount)}`
+        ? loadedCount > 0
+          ? `Filtering ${loadedCount} ${platformItemNoun(currentPlatform(), loadedCount)}`
+          : "Filtering"
         : status?.state === "error"
-          ? "Orislop scan needs attention"
-          : status?.checkedCount > 0
-            ? `Orislop is on · ${status.checkedCount} checked`
-            : "Orislop protection is on";
+          ? "Filtering needs attention"
+          : "Filtering";
     }
     host.classList.add("orislop-live-indicator-visible");
-    const visibleFor = status?.state === "scanning" ? 120000 : status?.state === "error" ? 8000 : 3200;
+    const visibleFor = status?.state === "scanning" ? 2200 : status?.state === "error" ? 6000 : 1800;
     scanIndicatorTimer = window.setTimeout(() => host?.classList.remove("orislop-live-indicator-visible"), visibleFor);
   }
 
@@ -587,10 +614,23 @@
     const adapter = OrislopPlatformAdapters.get(platform);
     if (!adapter) return [];
     const roots = collectCandidateRoots(platform, adapter);
+    const currentVideo = findVisibleVideo(document, true);
+    let currentRoot = currentVideo ? findCandidateRootForVideo(currentVideo, platform, adapter) : null;
+    if (platform === "youtube" && window.location.pathname === "/watch") {
+      currentRoot = document.querySelector("ytd-watch-metadata") || currentRoot;
+    }
+    if (currentRoot instanceof HTMLElement && !roots.includes(currentRoot)) roots.unshift(currentRoot);
     restoreReusedCandidateElements(roots);
     const platformRoots = roots
       .filter((element) => element instanceof HTMLElement)
       .filter(isPlatformCandidate);
+    const preferredVideoRoots = new Set();
+    if (platform !== "youtube" || window.location.pathname.startsWith("/shorts/")) {
+      for (const video of safeQueryAll(document, adapter.videoSelectors)) {
+        const preferredRoot = findCandidateRootForVideo(video, platform, adapter);
+        if (preferredRoot instanceof HTMLElement) preferredVideoRoots.add(preferredRoot);
+      }
+    }
     const platformRootSet = new Set(platformRoots);
     const containerRoots = new Set();
     for (const element of platformRoots) {
@@ -600,11 +640,22 @@
         ancestor = ancestor.parentElement;
       }
     }
-    const all = platformRoots.filter((element) => !containerRoots.has(element));
+    let all = platformRoots.filter((element) => {
+      const enclosedByPreferredRoot = Array.from(preferredVideoRoots)
+        .some((root) => root !== element && root.contains(element));
+      if (enclosedByPreferredRoot) return false;
+      return preferredVideoRoots.has(element) || !containerRoots.has(element);
+    });
+    if (currentRoot instanceof HTMLElement) {
+      all = all.filter((element) => element !== currentRoot && !element.contains(currentVideo));
+      all.unshift(currentRoot);
+    }
     const unique = [];
     const seen = new Set();
     for (const element of all) {
-      const candidate = extractCandidate(element);
+      const current = Boolean(currentVideo && (element === currentRoot || element === currentVideo || element.contains(currentVideo)))
+        || (!currentVideo && isLikelyCurrentElement(element));
+      const candidate = extractCandidate(element, "", current);
       if (isSponsoredCandidate(element, candidate)) {
         restoreSponsoredCandidate(element, candidate.itemKey);
         continue;
@@ -613,19 +664,18 @@
       const key = candidate.itemKey || `node:${unique.length}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      unique.push({ element, candidate });
+      unique.push({ element, candidate, current });
     }
     const ordered = unique
-      .map((entry) => {
-        const current = isCurrentCandidate(entry.element, entry.candidate);
-        return { ...entry, current, scanPriority: scanPriorityForElement(entry.element, current) };
-      })
+      .map((entry) => ({ ...entry, scanPriority: scanPriorityForElement(entry.element, entry.current) }))
       .sort((left, right) => {
         const priority = left.scanPriority - right.scanPriority;
         if (priority !== 0) return priority;
         return left.element.getBoundingClientRect().top - right.element.getBoundingClientRect().top;
       });
-    return platform === "linkedin" ? ordered.slice(0, LINKEDIN_LOOKAHEAD_LIMIT) : ordered;
+    if (platform === "linkedin") return ordered.slice(0, LINKEDIN_LOOKAHEAD_LIMIT);
+    if (["instagram", "tiktok"].includes(platform)) return ordered.slice(0, SHORT_FORM_LOOKAHEAD_LIMIT);
+    return ordered;
   }
 
   function isSponsoredCandidate(element, candidate = {}) {
@@ -675,7 +725,7 @@
 
   function restoreReusedCandidateElements(elements) {
     for (const element of elements) {
-      if (!(element instanceof HTMLElement) || !element.classList.contains("orislop-skip-hidden")) continue;
+      if (!(element instanceof HTMLElement)) continue;
       const previousItemKey = element.getAttribute(ITEM_KEY_ATTR) || "";
       if (!previousItemKey) continue;
       const currentItemKey = extractCandidate(element).itemKey || "";
@@ -697,7 +747,7 @@
       const profile = document.querySelector("main");
       if (profile instanceof HTMLElement) roots.add(profile);
     }
-    if (platform !== "youtube") {
+    if (platform !== "youtube" || window.location.pathname.startsWith("/shorts/")) {
       for (const video of safeQueryAll(document, adapter.videoSelectors)) {
         const root = findCandidateRootForVideo(video, platform, adapter);
         if (root) roots.add(root);
@@ -708,20 +758,34 @@
 
   function findCandidateRootForVideo(video, platform, adapter) {
     if (!(video instanceof HTMLElement)) return null;
-    let explicit = null;
-    try {
-      explicit = video.closest(adapter.candidateSelectors.join(","));
-    } catch {
-      explicit = null;
-    }
-    if (explicit instanceof HTMLElement) return explicit;
-    let node = video.parentElement;
-    let best = null;
+    let node = video;
+    let best = video.parentElement;
+    let bestScore = -Infinity;
     const itemSelector = adapter.itemLinkSelectors.join(",");
-    for (let depth = 0; node instanceof HTMLElement && depth < 8; depth += 1) {
-      if (node.matches("article, [data-urn^='urn:li:activity:'], [data-id^='urn:li:activity:'], .feed-shared-update-v2, .occludable-update, [data-e2e='recommend-list-item-container'], [data-e2e='feed-item'], [data-e2e='browse-video']")) return node;
-      if (itemSelector && node.querySelector(itemSelector)) best = node;
+    const metadataSelector = [...adapter.titleSelectors, ...adapter.creatorSelectors, ...adapter.textSelectors].join(",");
+    const strongRootSelector = "article, ytd-watch-metadata, yt-shorts-video-renderer, ytd-reel-video-renderer, [data-urn^='urn:li:activity:'], [data-id^='urn:li:activity:'], .feed-shared-update-v2, .occludable-update, [data-e2e='recommend-list-item-container'], [data-e2e='feed-item'], [data-e2e='browse-video']";
+    for (let depth = 0; node instanceof HTMLElement && depth < 10; depth += 1) {
       if (node.matches("main, body, html")) break;
+      let matchesCandidate = false;
+      try {
+        matchesCandidate = node.matches(adapter.candidateSelectors.join(","));
+      } catch {
+        matchesCandidate = false;
+      }
+      const strongRoot = node.matches(strongRootSelector);
+      const hasItemLink = Boolean(itemSelector && node.querySelector(itemSelector));
+      const hasMetadata = Boolean(metadataSelector && node.querySelector(metadataSelector));
+      const isNarrowPlayer = node.matches("[data-e2e='video-player'], #player, #movie_player");
+      const score = (strongRoot ? 120 : 0)
+        + (matchesCandidate ? 50 : 0)
+        + (hasItemLink ? 35 : 0)
+        + (hasMetadata ? 20 : 0)
+        - (isNarrowPlayer ? 90 : 0)
+        - depth;
+      if (score > bestScore && (matchesCandidate || strongRoot || hasItemLink || hasMetadata)) {
+        best = node;
+        bestScore = score;
+      }
       node = node.parentElement;
     }
     if (best instanceof HTMLElement && best !== document.body && best !== document.documentElement) return best;
@@ -778,22 +842,39 @@
     return 10 + Math.min(70, Math.floor(distance / viewport) * 10);
   }
 
-  function extractCandidate(element, platformOverride = "") {
+  function extractCandidate(element, platformOverride = "", forceCurrent = false) {
     const platform = platformOverride || currentPlatform();
+    const activeVideo = forceCurrent ? findVisibleVideo(document, true) : null;
     const link = findItemLink(element, platform);
-    const fallbackUrl = isLikelyCurrentElement(element)
+    const currentElement = forceCurrent || isLikelyCurrentElement(element);
+    const fallbackUrl = currentElement
       || (platform === "linkedin" && isLinkedInProfilePage() && element.matches("main"))
       ? window.location.href
       : "";
-    const parsed = OrislopClassifier.parsePlatformUrl(link || fallbackUrl, platform, element.dataset.videoId || element.getAttribute("data-video-id") || "");
+    const currentItemUrl = forceCurrent && OrislopPlatformAdapters.isItemHref(platform, window.location.href)
+      ? window.location.href
+      : "";
+    const parsed = OrislopClassifier.parsePlatformUrl(currentItemUrl || link || fallbackUrl, platform, element.dataset.videoId || element.getAttribute("data-video-id") || "");
     const channelName = findCreator(element, platform);
     const title = findTitle(element, platform, channelName);
     const visibleText = collectScopedText(element, platform, title, channelName);
     const transcriptText = collectTranscriptText(element, platform);
-    const mediaUrl = findMediaUrl(element);
-    const previewUrl = findPreviewUrl(element, platform, parsed.itemId);
-    const visibleVideo = findVisibleVideo(element);
-    const itemId = parsed.itemId || stableHash([link, title, channelName].join("|"));
+    const mediaUrl = findMediaUrl(element, platform, currentElement);
+    const previewUrl = findPreviewUrl(element, platform);
+    const visibleVideo = activeVideo || findVisibleVideo(element) || (currentElement ? findVisibleVideo(document, true) : null);
+    const mediaIdentity = [
+      link,
+      fallbackUrl,
+      mediaUrl,
+      visibleVideo?.currentSrc,
+      visibleVideo?.src,
+      visibleVideo?.poster,
+      previewUrl,
+      title,
+      channelName,
+      visibleText
+    ].map((value) => cleanText(value, 4000)).filter(Boolean).join("|");
+    const itemId = parsed.itemId || stableHash(mediaIdentity);
     const itemKey = `${platform}:${itemId}`;
     const mediaType = visibleVideo ? "video" : previewUrl ? "image" : "text";
     const imageText = collectImageText(element, platform);
@@ -801,6 +882,7 @@
       || mediaType !== "video"
       || openedLinkedInVideoKeys.has(itemKey)
       || (visibleVideo && (!visibleVideo.paused || Number(visibleVideo.currentTime) > 0));
+    const forceHeavyAnalysis = mediaType === "video";
     return {
       platform,
       itemId,
@@ -816,6 +898,7 @@
       previewUrl,
       mediaType,
       fullVideoAnalysisRequested,
+      forceHeavyAnalysis,
       learnedBrainrotTerms: [...learnedBrainrotTerms].slice(0, 64),
       durationSeconds: findDurationSeconds(element, visibleVideo),
       playbackPositionSeconds: readPlaybackPosition(visibleVideo),
@@ -835,10 +918,11 @@
     return cleanText(Array.from(new Set(values)).join(" "), 1800);
   }
 
-  function findMediaUrl(element) {
+  function findMediaUrl(element, platform = currentPlatform(), forceCurrent = false) {
+    const currentElement = forceCurrent || isLikelyCurrentElement(element);
+    const currentVideo = currentElement ? findVisibleVideo(document, true) : null;
     const localVideo = findVisibleVideo(element);
-    const currentVideo = isLikelyCurrentElement(element) ? findVisibleVideo(document) : null;
-    for (const video of [localVideo, currentVideo]) {
+    for (const video of [currentVideo, localVideo]) {
       if (!video) continue;
       const candidates = [
         video.currentSrc,
@@ -853,7 +937,39 @@
         if (isSupportedDirectMediaUrl(direct)) return direct;
       }
     }
-    return "";
+    return currentElement ? findRecentDirectMediaResource(platform) : "";
+  }
+
+  function findRecentDirectMediaResource(platform) {
+    if (typeof globalThis.performance?.getEntriesByType !== "function") return "";
+    const expectedHost = platform === "youtube" ? ".googlevideo.com"
+      : platform === "instagram" ? [".cdninstagram.com", ".fbcdn.net"]
+        : platform === "tiktok" ? [".tiktokcdn.com", ".tiktokv.com", ".muscdn.com", ".akamaized.net"]
+          : [];
+    const allowedHosts = Array.isArray(expectedHost) ? expectedHost : [expectedHost];
+    return globalThis.performance.getEntriesByType("resource")
+      .slice(-500)
+      .map((entry) => {
+        const direct = cleanText(entry?.name, 4000);
+        if (!isSupportedDirectMediaUrl(direct)) return null;
+        try {
+          const url = new URL(direct);
+          if (allowedHosts.length > 0 && !allowedHosts.some((suffix) => url.hostname.toLowerCase().endsWith(suffix))) return null;
+          const mime = decodeURIComponent(url.searchParams.get("mime") || "").toLowerCase();
+          if (mime.startsWith("audio/")) return null;
+          const initiator = String(entry?.initiatorType || "").toLowerCase();
+          let score = Number(entry?.startTime || 0) / 1000000;
+          if (mime.startsWith("video/")) score += 1000;
+          if (/\.(?:mp4|webm)(?:$|[?#])/i.test(url.pathname + url.search)) score += 500;
+          if (["video", "media"].includes(initiator)) score += 250;
+          if (/\/videoplayback(?:$|[?#])/i.test(url.pathname + url.search)) score += 100;
+          return { direct, score };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((left, right) => right.score - left.score)[0]?.direct || "";
   }
 
   function isSupportedDirectMediaUrl(value) {
@@ -869,7 +985,7 @@
     }
   }
 
-  function findPreviewUrl(element, platform = currentPlatform(), itemId = "") {
+  function findPreviewUrl(element, platform = currentPlatform()) {
     const visibleVideo = findVisibleVideo(element);
     const values = [
       visibleVideo?.poster,
@@ -908,13 +1024,6 @@
     for (const value of values) {
       const preview = cleanText(value, 4000);
       if (isSupportedPreviewUrl(preview)) return preview;
-    }
-    const youtubeId = cleanText(itemId, 64);
-    if (platform === "youtube" && /^[A-Za-z0-9_-]{3,64}$/.test(youtubeId)) {
-      // YouTube keeps the watch-page player outside ytd-watch-metadata. Using
-      // its public thumbnail lets Fast inspect one bounded image instead of
-      // downloading or decoding a potentially hours-long video.
-      return `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
     }
     return "";
   }
@@ -982,16 +1091,20 @@
   function findCreator(element, platform) {
     const adapter = OrislopPlatformAdapters.get(platform);
     if (!adapter) return "";
+    const scopes = [element];
+    if (platform === "youtube" && isLikelyCurrentElement(element)) scopes.push(document);
     for (const selector of adapter.creatorSelectors) {
-      for (const node of safeQueryAll(element, [selector]).slice(0, 16)) {
-        const text = cleanText(node?.textContent || node?.getAttribute?.("aria-label") || "", 240);
-        const profile = OrislopPlatformAdapters.profileNameFromHref(platform, node?.getAttribute?.("href"));
-        if (platform === "youtube" && text) return text;
-        if (platform === "tiktok" && text && node.hasAttribute?.("data-e2e") && !OrislopPlatformAdapters.isSocialUiText(text)) {
-          return text.replace(/^@/, "");
+      for (const scope of scopes) {
+        for (const node of safeQueryAll(scope, [selector]).slice(0, 16)) {
+          const text = cleanText(node?.textContent || node?.getAttribute?.("aria-label") || node?.getAttribute?.("content") || "", 240);
+          const profile = OrislopPlatformAdapters.profileNameFromHref(platform, node?.getAttribute?.("href"));
+          if (platform === "youtube" && text) return text;
+          if (platform === "tiktok" && text && node.hasAttribute?.("data-e2e") && !OrislopPlatformAdapters.isSocialUiText(text)) {
+            return text.replace(/^@/, "");
+          }
+          if (profile && text && !OrislopPlatformAdapters.isSocialUiText(text)) return text.replace(/^@/, "");
+          if (profile) return profile;
         }
-        if (profile && text && !OrislopPlatformAdapters.isSocialUiText(text)) return text.replace(/^@/, "");
-        if (profile) return profile;
       }
     }
     return "";
@@ -1049,7 +1162,8 @@
       candidate.transcriptText,
       candidate.imageText,
       candidate.mediaType,
-      candidate.fullVideoAnalysisRequested ? "opened" : "preview"
+      candidate.fullVideoAnalysisRequested ? "opened" : "preview",
+      candidate.forceHeavyAnalysis ? "forced-heavy" : "normal-scan"
     ].join("|"));
   }
 
@@ -1226,19 +1340,15 @@
     if (existing?.dataset.itemKey) releaseSuppressedPlayback(existing.dataset.itemKey, false);
     existing?.remove();
     host.classList.add("orislop-decision-host");
-    suppressPlayback(current ? document : host, candidate.itemKey);
-
     const cover = document.createElement("section");
     cover.className = "orislop-prescan-cover";
     cover.dataset.itemKey = candidate.itemKey;
     cover.setAttribute("role", "status");
     cover.setAttribute("aria-live", "polite");
     const label = document.createElement("strong");
-    label.textContent = "Orislop checking";
+    label.textContent = "Checking…";
     const detail = document.createElement("small");
-    detail.textContent = settingsCache.inferenceMode === "hybrid"
-      ? "Selecting one fixed Fast or Heavy decision"
-      : "Selecting one fixed decision";
+    detail.textContent = "One moment.";
     cover.append(label, detail);
     host.prepend(cover);
   }
@@ -1268,7 +1378,6 @@
       clearDecisionUi(element, candidate.itemKey);
       restoreAutomaticallyHiddenItem(element, candidate);
       releaseSuppressedPlayback(candidate.itemKey, true);
-      if (isCurrentCandidate(element, candidate)) showExplainControl(element, candidate, decision);
       return;
     }
 
@@ -1280,9 +1389,17 @@
         && decision.factCheckDecision?.verdict !== "contradicted"
         && (candidate.platform !== "youtube" || candidate.itemKind === "short" || /\/shorts\//.test(candidate.url));
       if (finalShortFormSkip && !advancedItemKeys.has(candidate.itemKey)) {
-        hideElement(element, candidate, decision, false);
-        advancedItemKeys.add(candidate.itemKey);
-        window.setTimeout(() => OrislopPlatformAdapters.advanceOne(candidate.platform, document), 50);
+        const advanced = OrislopPlatformAdapters.advanceOne(candidate.platform, document, element);
+        if (advanced) {
+          advancedItemKeys.add(candidate.itemKey);
+          clearDecisionUi(element, candidate.itemKey);
+          clearExplanationUi(candidate.itemKey);
+          releaseSuppressedPlayback(candidate.itemKey, false);
+          void saveSkippedRecord(candidate, decision, "hidden_before_view");
+        } else {
+          showDecisionCover(element, candidate, decision);
+          void saveSkippedRecord(candidate, decision, "blocked_current");
+        }
       } else {
         if (advancedItemKeys.has(candidate.itemKey)) restoreAutomaticallyHiddenItem(element, candidate);
         showDecisionCover(element, candidate, decision);
@@ -1294,11 +1411,54 @@
     }
   }
 
+  function simpleDecisionReason(decision = {}) {
+    const raw = [
+      ...(Array.isArray(decision.reasons) ? decision.reasons : []),
+      decision.detectorDecision?.reason,
+      decision.ollamaDecision?.reason,
+      decision.factCheckDecision?.reason
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    if (decision.hardEngagementBait === true
+      || /subscriber solicitation|engagement bait|subscribe|like begging|follow for/.test(raw)) {
+      return "Asks for likes, follows, or subscribers.";
+    }
+    if (decision.hardFinanceSlop === true
+      || /dropshipping|get-rich|finance funnel|passive income|money fast/.test(raw)) {
+      return "Promotes a get-rich-quick scheme.";
+    }
+    if (decision.hardAiSynthetic === true
+      || decision.visualAiSynthetic === true
+      || /ai.generated|synthetic|deepfake|ai video|ai voice|cloned voice/.test(raw)) {
+      return "Looks AI-generated.";
+    }
+    if (decision.hardMovieSceneRepost === true
+      || /repost|recycled|stolen|low originality|movie.*scene|clip dump/.test(raw)) {
+      return "Looks reused or low-originality.";
+    }
+    if (/reddit|text.story|story farm/.test(raw)) return "Looks like a recycled story format.";
+    if (decision.hardFactContradiction === true
+      || /misleading|contradict|unsupported claim|exaggerat/.test(raw)) {
+      return "May contain a misleading claim.";
+    }
+    if (["unavailable", "error"].includes(decision.detectorStatus)
+      || /failed|unavailable|no direct media|could not|timed out|not enough evidence/.test(raw)) {
+      return "Could not verify this video.";
+    }
+    return "Matches your filters.";
+  }
+
   function showDecisionCover(element, candidate, decision) {
     const host = findMediaHost(element, candidate);
     if (!(host instanceof HTMLElement)) return;
-    suppressPlayback(isCurrentCandidate(element, candidate) ? document : host, candidate.itemKey);
+    suppressPlayback(host, candidate.itemKey);
     const existing = host.querySelector(":scope > .orislop-decision-cover, :scope > .orislop-prescan-cover");
+    const state = decision.detectorStatus === "provisional" ? "verifying" : "hidden";
+    const reasonText = state === "verifying" ? "Giving it a closer look." : simpleDecisionReason(decision);
+    const renderKey = JSON.stringify([state, candidate.title || "", reasonText]);
+    if (existing?.classList.contains("orislop-decision-cover")
+      && existing.dataset.itemKey === candidate.itemKey
+      && existing.dataset.renderKey === renderKey) return;
     if (existing?.dataset.itemKey && existing.dataset.itemKey !== candidate.itemKey) {
       releaseSuppressedPlayback(existing.dataset.itemKey, false);
     }
@@ -1309,32 +1469,24 @@
     const cover = document.createElement("section");
     cover.className = "orislop-decision-cover";
     cover.dataset.itemKey = candidate.itemKey;
-    cover.dataset.state = decision.detectorStatus === "provisional" ? "verifying" : "hidden";
+    cover.dataset.state = state;
+    cover.dataset.renderKey = renderKey;
     cover.setAttribute("role", "dialog");
-    cover.setAttribute("aria-label", "Orislop skip decision");
+    cover.setAttribute("aria-label", "Content filtered by Orislop");
     cover.setAttribute("aria-live", "polite");
 
     const verdict = document.createElement("strong");
-    verdict.textContent = decision.detectorStatus === "provisional" ? "Skip detected · verifying" : "Skip · playback blocked";
+    verdict.textContent = state === "verifying" ? "Checking…" : "Filtered";
     const title = document.createElement("p");
     title.textContent = candidate.title || `${capitalize(candidate.platform)} video`;
     const reason = document.createElement("small");
-    reason.textContent = `${decision.score}/100 · ${decision.reasons.slice(0, 2).join(" · ")}`;
+    reason.textContent = reasonText;
     const actions = document.createElement("div");
     const sourceLinks = createFactSourceLinks(decision);
-    const explanationMode = explanationModeForDecision(decision);
-    const explainButton = document.createElement("button");
-    explainButton.type = "button";
-    explainButton.className = "orislop-cover-explain-button";
-    explainButton.textContent = explanationMode === "why_wrong" ? "Why is this wrong?" : "Explain video";
-    explainButton.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      void requestVideoExplanation(host, candidate, decision, explanationMode);
-    });
     const keepButton = document.createElement("button");
     keepButton.type = "button";
-    keepButton.textContent = "Don't skip";
+    keepButton.textContent = "Show";
+    keepButton.dataset.variant = "primary";
     keepButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1344,27 +1496,27 @@
       clearDecisionUi(element, candidate.itemKey);
       element.classList.remove("orislop-skip-hidden", "orislop-current-item-hidden");
       releaseSuppressedPlayback(candidate.itemKey, true);
-      showExplainControl(element, candidate, decision);
       const cloudDecisionId = decision?.detectorDecision?.decisionId || decision?.decisionId;
       if (cloudDecisionId) {
         void sendRuntimeMessage({
           type: "orislop.cloudFeedback",
           decisionId: cloudDecisionId,
           kind: "reveal",
-          note: "User selected Don't skip from the reversible decision cover"
+          note: "User selected Show from the reversible filtered-content cover"
         }, 8000).catch(() => {});
       }
     });
     const skipButton = document.createElement("button");
     skipButton.type = "button";
-    skipButton.textContent = "Skip";
+    skipButton.textContent = "Hide";
+    skipButton.dataset.variant = "quiet";
     skipButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
       cover.remove();
       hideElement(element, candidate, decision, true);
     });
-    actions.append(explainButton, keepButton, skipButton);
+    actions.append(keepButton, skipButton);
     cover.append(verdict, title, reason);
     if (sourceLinks) cover.append(sourceLinks);
     cover.append(actions);
@@ -1375,28 +1527,6 @@
     return decision?.hardFactContradiction === true || decision?.factCheckDecision?.verdict === "contradicted"
       ? "why_wrong"
       : "explain";
-  }
-
-  function showExplainControl(element, candidate, decision) {
-    const host = findMediaHost(element, candidate);
-    if (!(host instanceof HTMLElement)) return;
-    const existing = host.querySelector(":scope > .orislop-explain-button");
-    existing?.remove();
-    host.classList.add("orislop-explain-host");
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "orislop-explain-button";
-    button.dataset.itemKey = candidate.itemKey;
-    button.dataset.factVerdict = decision.factCheckDecision?.verdict || decision.factCheckStatus || "not_checked";
-    button.textContent = factCheckControlLabel(decision);
-    button.setAttribute("aria-label", factCheckControlAriaLabel(decision));
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      void requestVideoExplanation(host, candidate, decision, explanationModeForDecision(decision));
-    });
-    host.append(button);
   }
 
   function showLinkedInTrustControl(element, candidate, decision) {
@@ -1443,24 +1573,6 @@
     return candidate?.itemKind === "profile" ? "Check profile claims" : "Explain & check post";
   }
 
-  function factCheckControlLabel(decision) {
-    const verdict = decision?.factCheckDecision?.verdict;
-    if (verdict === "supported") return "Facts supported";
-    if (verdict === "contradicted") return "Why is this wrong?";
-    if (verdict === "mixed") return "Mixed evidence";
-    if (verdict === "insufficient") return "Facts inconclusive";
-    if (decision?.factCheckStatus === "pending") return "Checking facts...";
-    if (decision?.factCheckEligible === true && ["unavailable", "unconfigured", "degraded"].includes(decision?.factCheckStatus)) {
-      return "Fact check unavailable";
-    }
-    return "Explain video";
-  }
-
-  function factCheckControlAriaLabel(decision) {
-    const label = factCheckControlLabel(decision);
-    return label === "Explain video" ? "Ask Orislop to explain this video" : `${label}. Open Orislop evidence and explanation`;
-  }
-
   async function requestVideoExplanation(host, candidate, decision, mode) {
     if (!(host instanceof HTMLElement)) return;
     for (const existing of host.querySelectorAll(":scope > .orislop-explanation-panel")) existing.remove();
@@ -1475,12 +1587,31 @@
       : "video";
     panel.setAttribute("aria-label", mode === "why_wrong" ? "Why Orislop says this claim is wrong" : `${capitalize(contentLabel)} explanation`);
     panel.setAttribute("aria-live", "polite");
+    panel.tabIndex = -1;
+    installExplanationDismissal(panel, host);
+    if (candidate.platform !== "linkedin") {
+      renderExplanationHeader(panel, "Chat about this video", host);
+      appendTranscriptNotice(panel, {
+        source: candidate.transcriptText ? "platform_captions" : "none",
+        generated: false
+      });
+      appendVideoContext(
+        panel,
+        cleanText([candidate.title, candidate.visibleText, candidate.transcriptText].filter(Boolean).join(" — "), 1800)
+          || "Only limited context is available for this video."
+      );
+      const sourceLinks = createExplanationSourceLinks(decision?.factCheckDecision?.sources);
+      if (sourceLinks) panel.append(sourceLinks);
+      appendFactCheckChat(panel, candidate, decision, false, true);
+      host.append(panel);
+      return;
+    }
     renderExplanationHeader(panel, mode === "why_wrong" ? "Checking the evidence..." : "Explaining this video...", host);
     const loading = document.createElement("p");
     loading.className = "orislop-explanation-loading";
-    loading.textContent = candidate.platform === "linkedin"
-      ? "Orislop is reading the post, image text, profile claims, and available evidence."
-      : "Qwen is reading the captions and evidence. If captions are missing, Orislop will generate a short local transcript.";
+      loading.textContent = candidate.platform === "linkedin"
+        ? "Reading the available post and source context…"
+        : "Reading the available video context…";
     panel.append(loading);
     host.append(panel);
 
@@ -1497,14 +1628,15 @@
         }
       }, 185000);
       if (!panel.isConnected) return;
-      if (!response?.ok) throw new Error(response?.error || "Orislop could not explain this video.");
+      if (!response?.ok) throw new Error(response?.error || "Explanation is temporarily unavailable.");
       renderExplanationResult(panel, response, host, candidate, decision);
     } catch (error) {
       if (!panel.isConnected) return;
+      console.warn("Orislop explanation failed", error);
       renderExplanationHeader(panel, "Explanation unavailable", host);
       const message = document.createElement("p");
       message.className = "orislop-explanation-error";
-      message.textContent = friendlyContentProblem(error, "Orislop could not explain this item right now.");
+      message.textContent = "Explanation is temporarily unavailable. Try again in a moment.";
       panel.append(message);
     }
   }
@@ -1566,7 +1698,7 @@
     panel.append(notice);
   }
 
-  function appendFactCheckChat(panel, candidate, decision, generalLinkedIn = false) {
+  function appendFactCheckChat(panel, candidate, decision, generalLinkedIn = false, generalVideo = false) {
     const section = document.createElement("section");
     section.className = "orislop-fact-chat";
     section.dataset.itemKey = candidate.itemKey;
@@ -1574,10 +1706,12 @@
     section.addEventListener("keydown", (event) => event.stopPropagation());
 
     const heading = document.createElement("h4");
-    heading.textContent = generalLinkedIn ? "Ask Orislop about this" : "Ask about this fact check";
+    heading.textContent = generalVideo ? "Ask about this video" : generalLinkedIn ? "Ask Orislop about this" : "Ask about this fact check";
     const helper = document.createElement("p");
     helper.className = "orislop-fact-chat-helper";
-    helper.textContent = generalLinkedIn
+    helper.textContent = generalVideo
+      ? "Answers stay grounded in the available video context."
+      : generalLinkedIn
       ? "Answers stay grounded in this post or profile and the sources shown above."
       : "Answers use only the video text and the trusted sources shown above.";
     const messages = document.createElement("div");
@@ -1587,7 +1721,9 @@
     appendFactChatMessage(
       messages,
       "assistant",
-      generalLinkedIn
+      generalVideo
+        ? "Ask for a summary or about a specific point."
+        : generalLinkedIn
         ? "Ask for a simpler explanation, which claims are verified, or what remains unsupported."
         : "Ask what the sources say, what the video got wrong, or what remains uncertain."
     );
@@ -1598,8 +1734,8 @@
     input.type = "text";
     input.maxLength = 400;
     input.autocomplete = "off";
-    input.placeholder = "Ask a follow-up question...";
-    input.setAttribute("aria-label", "Ask Orislop about this fact check");
+    input.placeholder = generalVideo ? "Ask about this video..." : "Ask a follow-up question...";
+    input.setAttribute("aria-label", generalVideo ? "Ask Orislop about this video" : "Ask Orislop about this fact check");
     const submit = document.createElement("button");
     submit.type = "submit";
     submit.textContent = "Ask";
@@ -1619,9 +1755,15 @@
       input.value = "";
       input.disabled = true;
       submit.disabled = true;
-      submit.textContent = "Checking...";
+      submit.textContent = "Thinking...";
       appendFactChatMessage(messages, "user", question);
-      const waiting = appendFactChatMessage(messages, "assistant", "Checking the cited evidence...", "", true);
+      const waiting = appendFactChatMessage(
+        messages,
+        "assistant",
+        generalVideo ? "Reading the available video context..." : "Checking the cited evidence...",
+        "",
+        true
+      );
       try {
         const response = await sendRuntimeMessage({
           type: generalLinkedIn ? "orislop.chatItem" : "orislop.chatVideo",
@@ -1636,7 +1778,7 @@
           }
         }, 185000);
         waiting.remove();
-        if (!response?.ok) throw new Error(response?.error || "Orislop could not answer that question.");
+        if (!response?.ok) throw new Error(response?.error || "Chat is temporarily unavailable.");
         appendFactChatMessage(messages, "assistant", response.answer, response.uncertainty);
         history.push(
           { role: "user", content: question },
@@ -1645,7 +1787,9 @@
         while (history.length > 6) history.shift();
       } catch (error) {
         waiting.remove();
-        appendFactChatMessage(messages, "assistant", friendlyContentProblem(error, "Orislop could not answer that question right now."), "", true);
+        input.value = question;
+        console.warn("Orislop chat failed", error);
+        appendFactChatMessage(messages, "assistant", "Chat is temporarily unavailable. Try again in a moment.", "", true);
       } finally {
         pending = false;
         input.disabled = false;
@@ -1662,7 +1806,7 @@
     message.className = `orislop-fact-chat-message orislop-fact-chat-message-${role}`;
     if (temporary) message.dataset.temporary = "true";
     const label = document.createElement("strong");
-    label.textContent = role === "user" ? "You" : "Orislop AI";
+    label.textContent = role === "user" ? "You" : "Orislop";
     const body = document.createElement("p");
     body.textContent = cleanText(text, 1600);
     message.append(label, body);
@@ -1680,21 +1824,72 @@
     panel.replaceChildren();
     const header = document.createElement("header");
     const brand = document.createElement("span");
-    brand.textContent = "Orislop AI";
+    brand.textContent = "Orislop";
     const heading = document.createElement("strong");
     heading.textContent = headingText;
     const close = document.createElement("button");
     close.type = "button";
-    close.textContent = "Close";
-    close.setAttribute("aria-label", "Close explanation");
+    close.className = "orislop-explanation-close";
+    close.textContent = "×";
+    close.title = "Close (Esc)";
+    close.setAttribute("aria-label", "Close video chat");
     close.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      panel.remove();
-      cleanExplanationHost(host);
+      dismissExplanationPanel(panel, host);
     });
     header.append(brand, heading, close);
     panel.append(header);
+  }
+
+  function installExplanationDismissal(panel, host) {
+    panel.dataset.openSequence = String(++explanationPanelSequence);
+    const dismiss = () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      panel.remove();
+      cleanExplanationHost(host);
+    };
+    const onKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      const topmostPanel = [...document.querySelectorAll(".orislop-explanation-panel[data-open-sequence]")]
+        .filter((candidate) => candidate.isConnected)
+        .sort((left, right) => Number(right.dataset.openSequence) - Number(left.dataset.openSequence))[0];
+      if (topmostPanel && topmostPanel !== panel) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      dismiss();
+    };
+    const onPointerDown = (event) => {
+      const target = event.target;
+      if (panel.contains(target)) return;
+      if (target instanceof Element && target.closest(".orislop-explain-button, .orislop-cover-explain-button, .orislop-linkedin-trust-button")) return;
+      dismiss();
+    };
+    panel.__orislopDismiss = dismiss;
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
+  }
+
+  function dismissExplanationPanel(panel, host) {
+    if (typeof panel?.__orislopDismiss === "function") {
+      panel.__orislopDismiss();
+      return;
+    }
+    panel?.remove();
+    cleanExplanationHost(host);
+  }
+
+  function appendVideoContext(panel, bodyText) {
+    if (!bodyText) return;
+    const details = document.createElement("details");
+    details.className = "orislop-video-context";
+    const summary = document.createElement("summary");
+    summary.textContent = "Video context";
+    const body = document.createElement("p");
+    body.textContent = bodyText;
+    details.append(summary, body);
+    panel.append(details);
   }
 
   function appendExplanationSection(panel, labelText, bodyText) {
@@ -1746,8 +1941,11 @@
     for (const node of document.querySelectorAll(".orislop-explain-button, .orislop-linkedin-trust-button, .orislop-explanation-panel")) {
       if (itemKey && node.dataset.itemKey !== itemKey) continue;
       const host = node.parentElement;
-      node.remove();
-      cleanExplanationHost(host);
+      if (node.classList.contains("orislop-explanation-panel")) dismissExplanationPanel(node, host);
+      else {
+        node.remove();
+        cleanExplanationHost(host);
+      }
     }
   }
 
@@ -1786,10 +1984,11 @@
   }
 
   function findMediaHost(element, candidate) {
-    if (isCurrentCandidate(element, candidate) && candidate.platform === "youtube" && window.location.pathname === "/watch") {
+    const current = isCurrentCandidate(element, candidate);
+    if (current && candidate.platform === "youtube" && window.location.pathname === "/watch") {
       return document.querySelector("#movie_player, ytd-player") || element;
     }
-    const video = findVisibleVideo(element);
+    const video = (current ? findVisibleVideo(document, true) : null) || findVisibleVideo(element);
     if (video?.parentElement instanceof HTMLElement) {
       let host = video.parentElement;
       const videoRect = video.getBoundingClientRect();
@@ -1810,7 +2009,7 @@
     return thumbnail instanceof HTMLElement ? thumbnail : element;
   }
 
-  function findVisibleVideo(root) {
+  function findVisibleVideo(root, requireVisible = false) {
     const videos = Array.from(root?.querySelectorAll?.("video") || []).filter((video) => video instanceof HTMLVideoElement);
     if (root instanceof HTMLVideoElement) videos.unshift(root);
     return videos
@@ -1818,9 +2017,18 @@
         const rect = video.getBoundingClientRect();
         const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
         const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
-        return { video, visibleArea: visibleWidth * visibleHeight, area: Math.max(0, rect.width * rect.height) };
+        const visibleArea = visibleWidth * visibleHeight;
+        const area = Math.max(0, rect.width * rect.height);
+        const centerDistance = Math.abs((rect.top + rect.height / 2) - window.innerHeight / 2);
+        const activeScore = !video.paused && !video.ended ? 2 : Number(video.currentTime) > 0 ? 1 : 0;
+        return { video, visibleArea, area, centerDistance, activeScore, width: rect.width, height: rect.height };
       })
-      .sort((left, right) => right.visibleArea - left.visibleArea || right.area - left.area)[0]?.video || null;
+      .filter(({ video, visibleArea, width, height }) => !requireVisible
+        || (video.isConnected !== false && visibleArea >= 10000 && width >= 120 && height >= 80))
+      .sort((left, right) => right.activeScore - left.activeScore
+        || right.visibleArea - left.visibleArea
+        || left.centerDistance - right.centerDistance
+        || right.area - left.area)[0]?.video || null;
   }
 
   function hideElement(element, candidate, decision, explicit) {
@@ -1834,7 +2042,7 @@
     target.classList.add("orislop-skip-hidden");
     target.dataset.orislopAutoHidden = explicit ? "false" : "true";
     if (isCurrentCandidate(element, candidate)) target.classList.add("orislop-current-item-hidden");
-    suppressPlayback(isCurrentCandidate(element, candidate) ? document : target, candidate.itemKey);
+    suppressPlayback(target, candidate.itemKey);
     if (explicit || decision.detectorStatus !== "provisional") {
       void saveSkippedRecord(candidate, decision, explicit ? "user_skip" : "hidden_before_view");
     }
@@ -1967,7 +2175,9 @@
     if (current.itemId && linked.itemId && current.itemId === linked.itemId) return true;
     const rect = element.getBoundingClientRect();
     const center = rect.top + rect.height / 2;
-    const video = findVisibleVideo(element);
+    const currentVideo = findVisibleVideo(document, true);
+    if (currentVideo && (element === currentVideo || element.contains(currentVideo))) return true;
+    const video = findVisibleVideo(element, true);
     const videoRect = video?.getBoundingClientRect();
     const videoCenter = videoRect ? videoRect.top + videoRect.height / 2 : center;
     return Boolean(video)
@@ -2020,10 +2230,9 @@
   }
 
   function calculateSavedSeconds(candidate, mode) {
-    const duration = normalizeDuration(candidate.durationSeconds);
-    if (duration <= 0) return 0;
-    const watched = mode === "user_skip" ? normalizeDuration(candidate.playbackPositionSeconds) : 0;
-    return Math.max(0, duration - Math.min(duration, watched));
+    void candidate;
+    void mode;
+    return SAVED_SECONDS_PER_SKIP;
   }
 
   function normalizeDuration(value) {
@@ -2047,12 +2256,18 @@
       hideSkipped: typeof value.hideSkipped === "boolean"
         ? value.hideSkipped
         : typeof value.hideFeedCards === "boolean" ? value.hideFeedCards : DEFAULT_SETTINGS.hideSkipped,
-      ollamaModel: /^[a-zA-Z0-9._:/-]{1,100}$/.test(String(value.ollamaModel || "")) ? String(value.ollamaModel) : DEFAULT_SETTINGS.ollamaModel,
+      ollamaModel: normalizeModelName(value.ollamaModel),
       inferenceMode: ["local", "hybrid", "cloud"].includes(value.inferenceMode) ? value.inferenceMode : DEFAULT_SETTINGS.inferenceMode,
       performanceMode: ["fast", "heavy"].includes(value.performanceMode) ? value.performanceMode : "auto",
-      watchIntentComplete: value.watchIntentComplete === true,
+      watchIntentComplete: true,
       slopPreferences: SLOP_PREFERENCE_API?.normalize(value.slopPreferences) || [...DEFAULT_SLOP_PREFERENCES]
     };
+  }
+
+  function normalizeModelName(value) {
+    const model = String(value || "").trim();
+    if (!model || model === LEGACY_OLLAMA_MODEL) return ORISLOP_OLLAMA_MODEL;
+    return /^[a-zA-Z0-9._:/-]{1,100}$/.test(model) ? model : DEFAULT_SETTINGS.ollamaModel;
   }
 
   async function readList(key) {
@@ -2093,29 +2308,6 @@
 
   function cleanText(value, limit) {
     return String(value || "").replace(/\s+/g, " ").trim().slice(0, limit);
-  }
-
-  function friendlyContentProblem(error, fallback) {
-    const text = String(error instanceof Error ? error.message : error || "").toLowerCase();
-    if (/429|rate limit|too many|quota/.test(text)) {
-      return "The deeper checker is busy right now. Try again shortly.";
-    }
-    if (/401|403|unauthor|forbidden|token|session|expired/.test(text)) {
-      return "Your secure connection expired. Open Orislop and sign in again.";
-    }
-    if (/timeout|timed out|abort/.test(text)) {
-      return "That check took too long. The item stayed visible; try again in a moment.";
-    }
-    if (/not enough|no trusted|caption|transcript/.test(text)) {
-      return "There is not enough reliable context to answer that yet. The item stayed visible.";
-    }
-    if (/fetch|network|econn|refused|offline|unavailable|not reachable|receiving end/.test(text)) {
-      return "Orislop cannot reach the deeper checker right now. Fast protection is still working.";
-    }
-    if (/loading|warming|starting|503/.test(text)) {
-      return "The deeper checker is warming up. Try again in a moment.";
-    }
-    return fallback;
   }
 
   function emptyScanProgress() {

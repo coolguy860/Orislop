@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const SOCIAL_UI_PATTERN = /^(?:like|likes|comment|comments|share|shares|follow|following|more|reply|replies|save|saved|send|play|pause|mute|unmute|audio|original audio|sponsored|see translation|view all comments|log in|sign up)(?:\s+\d[\d,.kmb]*)?$/i;
+  const SOCIAL_UI_PATTERN = /^(?:like|likes|comment|comments|share|shares|follow|following|subscribe|subscribed|more|reply|replies|save|saved|send|play|pause|mute|unmute|audio|original audio|sponsored|see translation|view all comments|log in|sign up)(?:\s+\d[\d,.kmb]*)?$/i;
   const RESERVED_INSTAGRAM_PATHS = new Set(["about", "accounts", "developer", "direct", "directory", "explore", "legal", "p", "privacy", "reel", "reels", "stories", "terms", "web"]);
   const RESERVED_LINKEDIN_PATHS = new Set(["about", "advice", "business", "company", "events", "feed", "help", "hiring", "jobs", "learning", "legal", "messaging", "mynetwork", "news", "notifications", "posts", "premium", "pulse", "sales", "search"]);
 
@@ -10,21 +10,33 @@
       candidateSelectors: [
         "ytd-rich-item-renderer", "ytd-video-renderer", "ytd-grid-video-renderer",
         "ytd-compact-video-renderer", "ytd-playlist-panel-video-renderer",
-        "ytd-reel-item-renderer", "ytd-reel-video-renderer", "yt-lockup-view-model",
+        "ytd-reel-item-renderer", "ytd-reel-video-renderer", "yt-shorts-video-renderer", "yt-lockup-view-model",
         "ytm-rich-item-renderer", "ytm-video-with-context-renderer",
         "ytm-shorts-lockup-view-model", "ytd-watch-metadata"
       ],
       itemLinkSelectors: ["a[href*='/watch?v=']", "a[href*='/shorts/']"],
       titleSelectors: ["#video-title", "yt-formatted-string#video-title", "yt-shorts-video-title-view-model h2", "h1", "h2", "h3", "a[title]", "[aria-label][role='link']"],
-      creatorSelectors: ["#channel-name", "ytd-channel-name", "a[href^='/@']", ".ytd-channel-name"],
-      textSelectors: ["#description", "#metadata-line", "yt-formatted-string#video-title", "yt-shorts-video-title-view-model", "ytd-channel-name", "ytd-badge-supported-renderer", "[aria-label*='synthetic']", "[aria-label*='AI']"],
+      creatorSelectors: [
+        "yt-reel-channel-bar-view-model a[href*='/@']",
+        "ytd-reel-player-header-renderer a[href*='/@']",
+        "ytd-channel-name a[href*='/@']", "#channel-name a[href*='/@']",
+        "[itemprop='author'] [itemprop='name']", "meta[name='author']",
+        "#channel-name", "ytd-channel-name", "a[href*='/@']", ".ytd-channel-name"
+      ],
+      textSelectors: ["#description", "#metadata-line", "yt-formatted-string#video-title", "yt-shorts-video-title-view-model", "yt-reel-channel-bar-view-model", "ytd-reel-player-header-renderer", "ytd-channel-name", "ytd-badge-supported-renderer", "[aria-label*='synthetic']", "[aria-label*='AI']"],
       transcriptSelectors: [".ytp-caption-segment", "ytd-transcript-segment-renderer .segment-text", "yt-formatted-string.ytd-transcript-segment-renderer"],
       videoSelectors: ["video"],
-      nextSelectors: ["#navigation-button-down button", "button[aria-label='Next video']", "button[aria-label='Next Short']"]
+      nextSelectors: [
+        "#navigation-button-down button", "#navigation-button-down yt-button-shape button",
+        "#navigation-button-down", "ytd-shorts button[aria-label*='next' i]",
+        "button[aria-label='Next video']", "button[aria-label='Next Short']",
+        "button[aria-label*='next video' i]", "button[aria-label*='next short' i]"
+      ]
     }),
     instagram: freezeAdapter({
       candidateSelectors: [
-        "main article", "div[role='dialog'] article", "main [role='presentation'] article"
+        "main article", "div[role='dialog'] article", "main [role='presentation'] article",
+        "main div[role='presentation']:has(video)", "main section:has(video)", "div[role='dialog']:has(video)"
       ],
       itemLinkSelectors: ["a[href*='/reel/']", "a[href*='/p/']"],
       titleSelectors: ["h1", "h2", "ul li span[dir='auto']", "span[dir='auto']", "img[alt]", "video[aria-label]"],
@@ -32,12 +44,16 @@
       textSelectors: ["h1", "h2", "ul li span[dir='auto']", "span[dir='auto']", "img[alt]", "video[aria-label]"],
       transcriptSelectors: ["[aria-live='polite'] span", "[aria-live='assertive'] span", "video + div span[dir='auto']"],
       videoSelectors: ["main video", "div[role='dialog'] video"],
-      nextSelectors: ["button[aria-label='Next']", "div[role='button'][aria-label='Next']"]
+      nextSelectors: [
+        "button[aria-label='Next']", "button[aria-label*='next' i]",
+        "div[role='button'][aria-label='Next']", "div[role='button'][aria-label*='next' i]"
+      ]
     }),
     tiktok: freezeAdapter({
       candidateSelectors: [
         "div[data-e2e='recommend-list-item-container']", "div[data-e2e='feed-item']",
-        "div[data-e2e='browse-video']", "article[data-e2e]", "article:has(a[href*='/video/'])"
+        "div[data-e2e='browse-video']", "div[data-e2e='video-player']",
+        "article[data-e2e]", "article:has(a[href*='/video/'])", "main section:has(video)"
       ],
       itemLinkSelectors: ["a[href*='/video/']"],
       titleSelectors: ["[data-e2e='browse-video-desc']", "[data-e2e='video-desc']", "[data-e2e='search-card-desc']", "h1"],
@@ -45,7 +61,11 @@
       textSelectors: ["[data-e2e='browse-video-desc']", "[data-e2e='video-desc']", "[data-e2e='search-card-desc']", "[data-e2e='video-music']", "[data-e2e='browse-music']", "video[aria-label]"],
       transcriptSelectors: ["[data-e2e='browse-video-desc']", "[data-e2e='video-desc']", "[data-e2e='search-card-desc']", "[class*='DivSubtitle']", "[class*='Caption']"],
       videoSelectors: ["main video", "div[role='main'] video", "video"],
-      nextSelectors: ["button[data-e2e='arrow-right']", "button[aria-label='Next video']", "button[aria-label='Next']"]
+      nextSelectors: [
+        "button[data-e2e='arrow-down']", "button[data-e2e='arrow-right']",
+        "[data-e2e='arrow-down'] button", "[data-e2e='arrow-right'] button",
+        "button[aria-label='Next video']", "button[aria-label='Next']", "button[aria-label*='next' i]"
+      ]
     }),
     linkedin: freezeAdapter({
       candidateSelectors: [
@@ -164,16 +184,53 @@
     return ranked[0]?.value || "";
   }
 
-  function advanceOne(platform, root = document) {
+  function advanceOne(platform, root = document, currentElement = null) {
     const adapter = get(platform);
     if (!adapter || !root?.querySelector) return false;
     for (const selector of adapter.nextSelectors) {
-      const button = root.querySelector(selector);
+      const matched = root.querySelector(selector);
+      const button = matched instanceof HTMLElement
+        ? matched.matches?.("button, [role='button']") ? matched : matched.querySelector?.("button, [role='button']") || matched
+        : null;
       if (!(button instanceof HTMLElement) || button.getAttribute("aria-disabled") === "true" || button.disabled) continue;
       button.click();
       return true;
     }
-    return false;
+    const verticalFeed = ["instagram", "tiktok"].includes(platform)
+      || (platform === "youtube" && /^\/shorts\//.test(globalThis.location?.pathname || ""));
+    if (!verticalFeed || !root?.querySelectorAll) return false;
+
+    const candidates = Array.from(new Set(Array.from(root.querySelectorAll(adapter.candidateSelectors.join(",")))))
+      .filter((element) => element instanceof HTMLElement)
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.height > 0 && rect.width > 0;
+      });
+    let current = currentElement instanceof HTMLElement ? currentElement : null;
+    if (current && !candidates.includes(current)) {
+      current = candidates.find((element) => element.contains(current))
+        || current.closest?.(adapter.candidateSelectors.join(","))
+        || null;
+    }
+    if (current instanceof HTMLElement && !current.querySelector("video") && current.tagName !== "VIDEO") {
+      current = null;
+    }
+    if (!(current instanceof HTMLElement)) {
+      current = candidates
+        .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+        .sort((left, right) => Math.abs((left.rect.top + left.rect.height / 2) - globalThis.innerHeight / 2)
+          - Math.abs((right.rect.top + right.rect.height / 2) - globalThis.innerHeight / 2))[0]?.element || null;
+    }
+    if (!(current instanceof HTMLElement)) return false;
+    const currentRect = current.getBoundingClientRect();
+    const next = candidates
+      .filter((element) => element !== current && !current.contains(element))
+      .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+      .filter(({ rect }) => rect.top > currentRect.top + Math.min(80, Math.max(24, currentRect.height * 0.12)))
+      .sort((left, right) => left.rect.top - right.rect.top)[0]?.element;
+    if (!(next instanceof HTMLElement) || typeof next.scrollIntoView !== "function") return false;
+    next.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    return true;
   }
 
   function captionScore(value) {

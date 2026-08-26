@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,7 +11,6 @@ const readJson = (relativePath) => JSON.parse(readText(relativePath));
 
 const packageJson = readJson("package.json");
 const extensionManifest = readJson("apps/extension/manifest.json");
-const extensionRelease = readJson("configs/browser_extension_release.json");
 const vercel = readJson("vercel.json");
 const provenance = readJson("configs/model_provenance.json");
 const cloudHeavy = readJson("configs/cloud_heavy_v1.json");
@@ -28,7 +28,7 @@ const requirements = readText("apps/detector-bridge/requirements.txt")
   .map((line) => line.trim())
   .filter((line) => line && !line.startsWith("#"));
 
-assert.equal(packageJson.version, "1.3.0", "Root package version must match the 1.3.0 release");
+assert.equal(packageJson.version, "1.4.0", "Root package version must match the 1.4.0 release");
 assert.equal(packageJson.packageManager, "pnpm@11.9.0", "pnpm must be pinned for reproducible local, CI, and Vercel installs");
 assert.equal(packageJson.engines?.node, ">=22.12 <25", "Supported Node range must be explicit");
 assert.equal(packageJson.engines?.pnpm, "11.9.0", "pnpm engine must match packageManager");
@@ -47,22 +47,23 @@ assert.match(
 assert.ok(!workflow.includes("if: always()"), "Failed production gates must never publish release candidates");
 
 assert.equal(extensionManifest.version, packageJson.version, "Extension and root package versions differ");
-assert.equal(Object.hasOwn(extensionManifest, "key"), false, 'Chrome Web Store manifest must not contain the forbidden "key" field');
-assert.equal(extensionRelease.version, packageJson.version, "Extension release identity version differs");
-assert.match(extensionRelease.chromeWebStoreItemId, /^[a-p]{32}$/, "Chrome Web Store item ID is invalid");
-assert.equal(extensionRelease.chromeWebStoreItemId, "nhkffdhagjignajnmlgkgekpkfljhfdd", "Chrome Web Store item ID changed unexpectedly");
-assert.equal(extensionRelease.manifestKeyPolicy, "forbidden-in-web-store-zip");
-assert.deepEqual(extensionManifest.permissions, ["storage", "identity"], "Extension permissions must remain limited to session state and Google sign-in");
+const stableExtensionId = createHash("sha256")
+  .update(Buffer.from(extensionManifest.key, "base64"))
+  .digest("hex")
+  .slice(0, 32)
+  .replace(/[0-9a-f]/g, (character) => "abcdefghijklmnop"[Number.parseInt(character, 16)]);
+assert.equal(stableExtensionId, "nhkffdhagjignajnmlgkgekpkfljhfdd", "Manifest key no longer matches the Chrome Web Store item");
+assert.deepEqual(extensionManifest.permissions, ["storage", "webRequest"], "Extension permissions must remain limited to local state and YouTube media observation");
 assert.ok(!extensionManifest.host_permissions.includes("<all_urls>"), "Extension must not request <all_urls>");
 for (const requiredHost of [
   "https://www.youtube.com/*",
-  "https://www.instagram.com/*",
-  "https://www.tiktok.com/*",
-  "https://www.linkedin.com/*",
+  "https://m.youtube.com/*",
+  "https://*.googlevideo.com/*",
   "http://127.0.0.1:4317/*"
 ]) {
   assert.ok(extensionManifest.host_permissions.includes(requiredHost), `Missing required host permission: ${requiredHost}`);
 }
+assert.ok(!extensionManifest.host_permissions.some((origin) => /instagram|tiktok|linkedin|api\.orislop/i.test(origin)), "YouTube MVP must not request dropped-platform or cloud API access");
 assert.ok(!extensionManifest.host_permissions.some((origin) => origin.includes(":11434")), "Published extension must not expose Ollama directly");
 
 assert.ok(!companionInstaller.includes("Tasks: configure"), "Companion security/runtime configuration must not be optional");

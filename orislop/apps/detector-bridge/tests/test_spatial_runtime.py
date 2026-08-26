@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sys
 import tempfile
@@ -127,8 +128,12 @@ class SpatialRuntimeTests(unittest.TestCase):
         detector.vision = FakeVision()
         detector.fusion = lambda features: features[:, -3:-2]
         detector.temperature = 1.0
+        detector.cpu_pool = ThreadPoolExecutor(max_workers=2)
         images = [Image.fromarray(np.full((8, 8, 3), index * 20, dtype=np.uint8)) for index in range(5)]
-        probabilities = detector.analyze_images(images)
+        try:
+            probabilities = detector.analyze_images(images)
+        finally:
+            detector.cpu_pool.shutdown(wait=True)
         self.assertEqual(len(probabilities), 5)
         self.assertEqual(classifier.calls, 1)
         self.assertTrue(all(abs(value - torch.sigmoid(torch.tensor(0.8)).item()) < 1e-6 for value in probabilities))

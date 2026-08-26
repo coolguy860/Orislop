@@ -13,7 +13,7 @@ const assetRoot = path.join(distRoot, "assets");
 const downloadsRoot = path.join(distRoot, "downloads");
 const brandRoot = path.join(repoRoot, "assets", "brand");
 const tscPath = findTscPath();
-const releaseId = "orislop-shield-web-1.3.0-2026-08-18";
+const releaseId = "orislop-youtube-web-1.4.0-2026-08-25";
 const modelSource = readFileSync(path.join(repoRoot, "models", "orislop_ai_classifier_v1.json"), "utf8").replace(/\r\n?/g, "\n");
 const modelArtifactHash = createHash("sha256").update(modelSource).digest("hex");
 const modelFeatureCount = JSON.parse(modelSource).features.length;
@@ -45,28 +45,22 @@ writeFileSync(path.join(distRoot, "index.html"), `<!doctype html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Orislop Shield is privacy-conscious feed intelligence for YouTube, Instagram Reels, TikTok, and LinkedIn." />
+    <meta name="description" content="Orislop automatically filters AI clips, reposts, engagement bait, and repetitive videos from YouTube and Shorts." />
     <meta name="theme-color" content="#080c12" />
-    <meta name="robots" content="index,follow" />
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Orislop Shield · Your attention deserves a firewall" />
-    <meta property="og:description" content="Clean up repetitive, synthetic, and low-value feed content while useful and uncertain posts stay visible." />
-    <meta property="og:url" content="https://orislop.com" />
     <meta name="orislop-release" content="${releaseId}" />
-    <link rel="canonical" href="https://orislop.com" />
     <link rel="icon" href="./assets/brand/orislop_feedcut_icon.svg" type="image/svg+xml" />
     <link rel="icon" href="./assets/brand/icon_32.png" sizes="32x32" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/brand/icon_256.png" />
-    <title>Orislop Shield · A calmer feed without the guesswork</title>
+    <title>Orislop · Automatic YouTube cleanup</title>
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
     <div id="root">
       <noscript>
-        <div class="no-script">Orislop Shield needs JavaScript enabled for the analyzer.</div>
+        <div class="no-script">Orislop needs JavaScript enabled for the analyzer.</div>
       </noscript>
       <section class="static-load-fallback" aria-live="polite">
-        <p class="eyebrow">Orislop Shield</p>
+        <p class="eyebrow">Orislop</p>
         <h1>Serve this build over HTTP.</h1>
         <p>
           If this message stays on screen, the JavaScript module did not load. Do not open
@@ -86,7 +80,7 @@ writeFileSync(path.join(distRoot, "privacy.html"), `<!doctype html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Orislop Shield privacy policy for the website, browser extension, local companion, and optional cloud inference." />
+    <meta name="description" content="Orislop privacy policy for the website, YouTube browser extension, and local companion." />
     <meta name="orislop-release" content="${releaseId}" />
     <title>Orislop Privacy Policy</title>
     <link rel="icon" href="./assets/brand/orislop_feedcut_icon.svg" type="image/svg+xml" />
@@ -98,17 +92,16 @@ writeFileSync(path.join(distRoot, "privacy.html"), `<!doctype html>
         <p class="eyebrow">Orislop</p>
         <h1>Privacy Policy</h1>
         <p>
-          Orislop Shield's website remains local-first. The extension supports a local companion and an optional
-          authenticated cloud inference mode. The website does not require an account, does not include a secret
-          YouTube API key, does not scrape comments, and does not upload local video files.
+          Orislop's website and YouTube extension are local-first. The extension uses the Orislop companion for
+          full Heavy visual analysis.
+          The hosted static site does not require an account, does not include a secret YouTube API key,
+          does not scrape comments, and does not upload local video files.
         </p>
         <h2>Static Website</h2>
         <p>
           The analyzer scores YouTube URLs, optional titles, optional descriptions, and decision-lab rows in
-          your browser. When the live context checker is connected, the YouTube URL and text you entered are sent
-          through an Orislop server-side proxy for a Qwen second opinion. The API credential never reaches your
-          browser. Local file selections, feedback, settings, and decision-lab logs are not sent by that request.
-          Feedback such as Accurate or Wrong is stored in your browser's local storage on your device.
+          your browser. Feedback such as Accurate or Wrong is stored in your browser's local storage on
+          your device. The static site does not send those feedback records to an Orislop server.
         </p>
         <h2>Browser Extension</h2>
         <p>
@@ -117,26 +110,20 @@ writeFileSync(path.join(distRoot, "privacy.html"), `<!doctype html>
           reasons in the popup.
         </p>
         <p>
-        In local mode, extension 1.3.0 sends supported YouTube, Instagram, TikTok, and LinkedIn page or public
+          Extension 1.4.0 runs only on YouTube and YouTube Shorts. It sends visible YouTube metadata and public
           media URLs to the Orislop detector companion on your own device at 127.0.0.1. The companion may download
-          public media temporarily for analysis and deletes the temporary file after the scan. A LinkedIn video is
-          not sent for visual analysis from its feed preview; that analysis begins only after you open or play it.
+          public media temporarily for analysis and deletes the temporary file after the scan.
         </p>
         <p>
-          In cloud mode, the extension sends the supported page URL, public media URL when available, title,
-          creator name, visible caption or metadata, and an extracted transcript excerpt to
-          <code>https://api.orislop.com</code>. The service uses that data for Qwen context scoring, visual
-          authenticity analysis, and source-backed fact checking. It does not receive browser cookies, account
-          credentials, private messages, or general browsing history. Media working files are temporary; detector
-          decisions may remain in bounded in-memory caches for up to six hours and fact-check results for up to
-          twelve hours to reduce repeated GPU and evidence requests. Request bodies are not written by Orislop's
-          application logger.
+          The extension does not receive browser cookies, account credentials, private messages, or general browsing
+          history. Settings, activity, and decision overrides remain in the browser profile. The YouTube MVP does
+          not request access to Instagram, TikTok, LinkedIn, or the Orislop cloud API.
         </p>
         <h2>Source-Backed Fact Checking</h2>
         <p>
           When fact checking is enabled, Qwen extracts checkable informational claims in the selected inference
-          environment. The local companion or Orislop cloud service sends those claim search queries to the selected
-          Brave Search or Google Fact Check provider. Provider keys remain in the companion or cloud secret manager
+          environment. The local companion sends those claim search queries to the selected Brave Search or Google
+          Fact Check provider. Provider keys remain in the companion
           and are not exposed to the extension. Returned source titles, URLs, snippets, ratings, and the evidence
           decision may be cached in service memory and stored with local extension activity. Media, account cookies,
           and browsing credentials are not sent with source searches.
@@ -154,15 +141,14 @@ writeFileSync(path.join(distRoot, "privacy.html"), `<!doctype html>
           to remove extension logs.
         </p>
         <p>
-          Cloud inference caches expire automatically. During the closed beta, contact the address published on
-          orislop.com with the request identifier and approximate request time for operational deletion assistance.
+          Temporary companion media is deleted after analysis. Clear local Orislop data from the extension popup
+          to remove browser-stored settings and activity.
         </p>
         <h2>Detection Limits</h2>
         <p>
-          The web demo combines transparent local scoring with an optional live text-context second opinion. It can
-          be wrong and does not run the full spatial or temporal PyTorch model on a pasted YouTube URL. Full media
-          analysis requires the extension to access supported media. Source-assisted fact checking can also be
-          incomplete or wrong and should not be treated as a guarantee of truth or a factual deepfake verdict.
+          This public static build uses transparent heuristics. It can be wrong. It does not run the full
+          spatial or temporal PyTorch model. Source-assisted fact checking can also be incomplete or wrong and
+          should not be treated as a guarantee of truth or as a factual deepfake verdict.
         </p>
         <p><a class="primary-link" href="./index.html">Back to Orislop</a></p>
       </section>
@@ -204,11 +190,6 @@ function buildExtensionDownload() {
     stdio: "inherit"
   });
 
-  const extensionManifest = JSON.parse(readFileSync(path.join(extensionDist, "manifest.json"), "utf8"));
-  if (Object.hasOwn(extensionManifest, "key")) {
-    throw new Error('The downloadable extension cannot include the forbidden manifest "key" field.');
-  }
-
   createZipFromDirectoryContents(extensionDist, zipPath);
   mkdirSync(path.dirname(standaloneZipPath), { recursive: true });
   copyFileSync(zipPath, standaloneZipPath);
@@ -246,6 +227,9 @@ function writeReleaseInfo() {
     aiClassifierArtifactHash: modelArtifactHash,
     aiClassifierFeatureCount: modelFeatureCount,
     requiredQaFixes: [
+      "YouTube-only MVP positioning matches the extension manifest",
+      "automatic filtering and no-setup-screen messaging are visible",
+      "local companion dependency is disclosed",
       "fail-closed analyzer validation",
       "visible Don't skip/Skip definitions",
       "visible strictness thresholds and multipliers",
@@ -261,9 +245,7 @@ function writeReleaseInfo() {
       "primary result stays compact while technical evidence remains available on demand",
       "feedback shows a persistent local selected state",
       "placeholder sample IDs do not issue thumbnail or embed requests",
-      "production metadata and Vercel security headers are configured",
-      "same-origin live context AI uses a server-side token and friendly local fallback",
-      "Chrome Web Store package rejects the forbidden manifest key field"
+      "production metadata and Vercel security headers are configured"
     ]
   }, null, 2)}\n`);
 }

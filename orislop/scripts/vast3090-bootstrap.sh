@@ -29,12 +29,22 @@ else
 fi
 
 echo "[vast-bootstrap] root=$ROOT"
-echo "[vast-bootstrap] installing OS dependencies"
-"${SUDO[@]}" apt-get update
-"${SUDO[@]}" apt-get install -y --no-install-recommends \
-  ca-certificates curl ffmpeg python3 python3-pip python3-venv tesseract-ocr zstd
+SYSTEM_PACKAGES=(ca-certificates curl ffmpeg python3 python3-pip python3-venv tesseract-ocr zstd)
+MISSING_PACKAGES=()
+for package in "${SYSTEM_PACKAGES[@]}"; do
+  if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed'; then
+    MISSING_PACKAGES+=("$package")
+  fi
+done
+if (( ${#MISSING_PACKAGES[@]} > 0 )); then
+  echo "[dependencies] installing missing OS packages: ${MISSING_PACKAGES[*]}"
+  "${SUDO[@]}" apt-get update
+  "${SUDO[@]}" apt-get install -y --no-install-recommends "${MISSING_PACKAGES[@]}"
+else
+  echo "[dependencies] all required OS packages are already installed"
+fi
 
-if ! command -v cloudflared >/dev/null 2>&1; then
+if [[ "${ORISLOP_REQUIRE_CLOUDFLARE:-0}" == "1" ]] && ! command -v cloudflared >/dev/null 2>&1; then
   echo "[vast-bootstrap] installing cloudflared $CLOUDFLARED_VERSION"
   TEMP_CLOUDFLARED="$(mktemp)"
   curl --fail --location --silent --show-error \
@@ -61,9 +71,12 @@ fi
 REQ_SHA="$(sha256sum "$REQUIREMENTS" | awk '{print $1}')"
 STAMP="$VENV/.orislop-requirements-$REQ_SHA"
 if [[ ! -f "$STAMP" ]]; then
+  echo "[dependencies] installing the pinned Python environment because its exact receipt is missing"
   "${SUDO[@]}" "$VENV/bin/pip" install --no-cache-dir --upgrade pip
   "${SUDO[@]}" "$VENV/bin/pip" install --no-cache-dir -r "$REQUIREMENTS"
   "${SUDO[@]}" touch "$STAMP"
+else
+  echo "[dependencies] pinned Python requirements receipt already matches"
 fi
 
 "${SUDO[@]}" mkdir -p /models /run/orislop-vast /run/orislop-media

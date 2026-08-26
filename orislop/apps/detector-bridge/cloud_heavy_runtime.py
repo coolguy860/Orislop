@@ -293,7 +293,10 @@ def consensus_decision(
     motion_vote = motion_probability >= motion_threshold
     consensus = spatial_vote and motion_vote
     english = language.lower().split("-", 1)[0] in {"en", "eng"}
-    automatic = consensus and rollout_mode == "aggressive" and english
+    automatic = consensus and (
+        rollout_mode == "strict-testing"
+        or (rollout_mode == "aggressive" and english)
+    )
     return {
         "synthetic": consensus,
         "automaticSkipEligible": automatic,
@@ -336,7 +339,14 @@ class CloudHeavyRuntime:
         configured_mode = os.environ.get("ORISLOP_CLOUD_HEAVY_ROLLOUT", self.config["rollout"]["defaultMode"]).lower()
         integrity_ready = bool(self.config.get("calibrated") and self.config.get("betaGatePassed"))
         explicitly_enabled = os.environ.get("ORISLOP_CLOUD_BETA_AUTOMATIC_HIDES", "0") == "1"
-        self.rollout_mode = "aggressive" if configured_mode == "aggressive" and integrity_ready and explicitly_enabled else "shadow"
+        private_strict = os.environ.get("ORISLOP_PRIVATE_STRICT_AUTOMATIC_HIDES", "0") == "1"
+        self.rollout_mode = (
+            "strict-testing"
+            if private_strict
+            else "aggressive"
+            if configured_mode == "aggressive" and integrity_ready and explicitly_enabled
+            else "shadow"
+        )
 
     def _run_component(self, name: str, operation: Any) -> tuple[Any, int]:
         started_at = time.monotonic()

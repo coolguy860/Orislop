@@ -243,6 +243,10 @@ def build_bundle_from_package(
         "micro_checkpoint", "mid_checkpoint", "long_checkpoint", "extra_long_checkpoint",
         "fusion_checkpoint", "calibration_checkpoint", "spatial_checkpoint", "lip_checkpoint",
         "local_cache_dir", "output_dir", "runtime",
+        "precomputed_manifest", "precomputed_root",
+        "validation_manifest", "validation_root",
+        "test_manifest", "test_root", "data_roots",
+        "expert_cache_root", "av_prepared_npz", "av_yunet_model",
     }
     for key, value in package.config.items():
         if key in blocked_config or value is None or not hasattr(args, key):

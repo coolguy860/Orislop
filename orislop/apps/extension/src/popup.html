@@ -3,240 +3,158 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Orislop Shield</title>
+    <title>Orislop</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
-  <body>
-    <main class="shell">
-      <header class="topbar">
-        <div class="brand-lockup">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 512 512" focusable="false">
-              <path class="brand-mark__orange brand-mark__row-1" d="M90 82h241l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z" />
-              <path class="brand-mark__blue brand-mark__row-1" d="M361 82h45a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24h-81l36-70Z" />
-              <path class="brand-mark__orange brand-mark__row-2" d="M90 202h185l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z" />
-              <path class="brand-mark__blue brand-mark__row-2" d="M305 202h65a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24H269l36-70Z" />
-              <path class="brand-mark__orange brand-mark__row-3" d="M90 322h129l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z" />
-              <path class="brand-mark__blue brand-mark__row-3" d="M249 322h85a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24H213l36-70Z" />
-            </svg>
-          </span>
-          <span><strong>ORISLOP</strong><small>Feed cleanup</small></span>
-        </div>
-        <span id="overallStatus" class="status-pill" data-state="checking"><i aria-hidden="true"></i>Checking</span>
-      </header>
+  <body class="is-loading">
+    <main id="appShell" class="app-shell" aria-busy="true">
+      <section id="homeView" class="view view-home" data-view="home">
+        <header class="topbar">
+          <a class="brand-lockup" href="https://orislop.com" target="_blank" rel="noopener noreferrer" aria-label="Orislop website">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 512 512" focusable="false">
+                <path class="brand-mark__orange" d="M90 82h241l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z" />
+                <path class="brand-mark__blue" d="M361 82h45a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24h-81l36-70Z" />
+                <path class="brand-mark__orange" d="M90 202h185l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z" />
+                <path class="brand-mark__blue" d="M305 202h65a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24H269l36-70Z" />
+                <path class="brand-mark__orange" d="M90 322h129l-36 70H90a24 24 0 0 1-24-24v-22a24 24 0 0 1 24-24Z" />
+                <path class="brand-mark__blue" d="M249 322h85a24 24 0 0 1 24 24v22a24 24 0 0 1-24 24H213l36-70Z" />
+              </svg>
+            </span>
+            <span>Orislop</span>
+          </a>
+          <button id="openPreferencesButton" class="icon-button" type="button" aria-label="Open filtering preferences" title="Preferences">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" /></svg>
+          </button>
+        </header>
 
-      <section class="hero" aria-labelledby="protectionTitle">
-        <div class="hero-copy">
-          <span class="eyebrow">Your feed</span>
-          <h1 id="protectionTitle">Checking your feed</h1>
-          <p id="protectionDetail">It hides the filler you picked and leaves the good stuff alone.</p>
-        </div>
-        <label class="master-switch" title="Pause or resume Orislop">
-          <input id="protectionToggle" type="checkbox" role="switch" aria-label="Orislop protection" aria-checked="true" />
-          <span aria-hidden="true"></span>
-        </label>
-        <div class="hero-rule" aria-hidden="true"><span></span></div>
-        <div class="coverage-row">
-          <span><i class="coverage-dot"></i>YouTube</span>
-          <span><i class="coverage-dot"></i>Instagram</span>
-          <span><i class="coverage-dot"></i>TikTok</span>
-          <span><i class="coverage-dot"></i>LinkedIn</span>
-        </div>
-      </section>
+        <section id="filteringStage" class="filtering-stage" data-state="loading" aria-labelledby="protectionTitle">
+          <div class="status-signal" aria-hidden="true"><span></span></div>
+          <p id="overallStatus" class="status-kicker" role="status" aria-live="polite">Getting ready</p>
+          <h1 id="protectionTitle">Loading Orislop</h1>
+          <p id="protectionDetail" class="status-detail">Restoring your filtering preferences.</p>
+          <label class="master-toggle">
+            <span id="toggleLabel">Filter my feed</span>
+            <input id="protectionToggle" type="checkbox" role="switch" aria-label="Filter my feed with Orislop" aria-checked="true" />
+            <span class="toggle-track" aria-hidden="true"><i></i></span>
+          </label>
+        </section>
 
-      <section id="liveScan" class="live-scan" data-state="starting" aria-live="polite">
-        <span class="live-scan-signal" aria-hidden="true"><i></i></span>
-        <span class="live-scan-copy">
-          <small>Scanner</small>
-          <strong id="scanStatusTitle">Connecting to this feed</strong>
-          <span id="scanStatusDetail">Scan activity shows up here as it runs.</span>
-        </span>
-        <span class="live-scan-actions">
-          <strong id="scanCheckedCount">0 checked</strong>
-          <button id="scanNowButton" type="button">Scan now</button>
-        </span>
-        <div class="scan-pipeline" aria-label="Progressive scan progress">
-          <article class="scan-stage" data-stage="fast">
-            <span><strong>Fast pass</strong><b id="fastScanProgress">0 / 0</b></span>
-            <div class="scan-stage-track" aria-hidden="true"><i id="fastScanBar"></i></div>
-            <small id="fastScanLatency">Waiting for feed items</small>
-          </article>
-          <article class="scan-stage" data-stage="heavy">
-            <span><strong id="deepScanLabel">Second look</strong><b id="heavyScanProgress">0 / 0</b></span>
-            <div class="scan-stage-track" aria-hidden="true"><i id="heavyScanBar"></i></div>
-            <small id="heavyScanLatency">One final decision per item</small>
-          </article>
-        </div>
-      </section>
-
-      <section class="engine-grid" aria-label="Protection engines">
-        <article class="engine-card" id="languageEngineCard" data-state="checking">
-          <div class="engine-icon language-icon" aria-hidden="true">Aa</div>
-          <div><span>Text analysis</span><strong id="languageEngineState">Checking</strong><small id="languageEngineDetail">Reads titles and context</small></div>
-          <i class="engine-state-dot" aria-hidden="true"></i>
-        </article>
-        <article class="engine-card" id="visualEngineCard" data-state="checking">
-          <div class="engine-icon visual-icon" aria-hidden="true"><i></i></div>
-          <div><span>Media analysis</span><strong id="visualEngineState">Checking</strong><small id="visualEngineDetail">Checks video signals</small></div>
-          <i class="engine-state-dot" aria-hidden="true"></i>
-        </article>
-        <article class="engine-card evidence-engine-card" id="evidenceEngineCard" data-state="checking">
-          <div class="engine-icon evidence-icon" aria-hidden="true">OK</div>
-          <div><span>Evidence</span><strong id="evidenceEngineState">Checking</strong><small id="evidenceEngineDetail">Checks claims against sources</small></div>
-          <i class="engine-state-dot" aria-hidden="true"></i>
-        </article>
-      </section>
-
-      <section class="metric-grid" aria-label="Protection activity">
-        <article><span>Found</span><strong id="flaggedCount">0</strong><small>Skip-rated</small></article>
-        <article><span>Hidden</span><strong id="skippedCount">0</strong><small>Before view</small></article>
-        <article><span>Saved</span><strong id="minutesSaved">0m</strong><small>Runtime skipped</small></article>
-      </section>
-
-      <div class="decision-legend" aria-label="Orislop decisions">
-        <span><i aria-hidden="true"></i><strong>Do not skip</strong><small>Keep visible</small></span>
-        <span><i aria-hidden="true"></i><strong>Skip</strong><small>Hide before view</small></span>
-      </div>
-
-      <details id="watchIntentPanel" class="watch-intent" data-state="onboarding">
-        <summary>
-          <span class="watch-intent-mark" aria-hidden="true">F</span>
+        <button id="activityButton" class="outcome-row" type="button" aria-label="View filtering activity">
           <span>
-            <small>Filters</small>
-            <strong>Choose what to hide</strong>
-            <b id="watchIntentSummary">Pick filters</b>
+            <strong id="todayCount" aria-live="polite">—</strong>
+            <small id="todayLabel">removed today</small>
           </span>
-          <i aria-hidden="true">v</i>
-        </summary>
-        <div class="watch-intent-body">
-          <div class="filter-bot" aria-label="Feed filter helper">
-            <div class="filter-bot-message">
-              <strong>Type a filter</strong>
-              <p>Write it like a normal sentence. Example: "show creators and tutorials; hide Reddit stories, phonk edits, and ragebait."</p>
-            </div>
-            <div class="filter-bot-chips" aria-label="Quick filter presets">
-              <button type="button" data-filter-preset="real_stuff">Keep originals</button>
-              <button type="button" data-filter-preset="no_ai">Hide AI voices</button>
-              <button type="button" data-filter-preset="brainrot_free">Cut filler</button>
-              <button type="button" data-filter-preset="creator_mode">Creators first</button>
-              <button type="button" data-filter-preset="chaos">Show all</button>
-            </div>
-            <label class="filter-bot-prompt" for="filterBotInput">
-              <span>What should stay?</span>
-              <textarea id="filterBotInput" rows="2" spellcheck="true" placeholder="Show useful videos and creators. Hide fake stories, AI voices, reposted clips, and ragebait."></textarea>
-            </label>
-            <div class="filter-bot-actions">
-              <button id="applyFilterBotButton" type="button">Apply</button>
-              <small id="filterBotReply" role="status" aria-live="polite">This updates the checkboxes below.</small>
-            </div>
-          </div>
-          <p class="watch-intent-intro">Or pick exact filters below.</p>
-          <div class="watch-intent-actions">
-            <button id="selectAllSlopButton" type="button">Select all</button>
-            <button id="clearSlopButton" type="button">Clear filters</button>
-          </div>
-          <div id="slopPreferenceGrid" class="slop-preference-grid" aria-label="Content Orislop should filter"></div>
-          <button id="saveWatchIntentButton" class="watch-intent-save" type="button">Save</button>
-          <small class="watch-intent-note">Fast checks go first. A second look runs only when needed.</small>
-        </div>
-      </details>
-
-      <label class="preference-row">
-        <span class="preference-icon" aria-hidden="true">H</span>
-        <span><strong>Auto-hide skips</strong><small>Hide future Skip-rated items before you see them.</small></span>
-        <input id="hideSkippedToggle" type="checkbox" role="switch" aria-label="Hide Skip-rated feed items" aria-checked="true" />
-      </label>
-
-      <section class="activity-section">
-        <div class="section-heading"><span><small>Activity</small><strong>Recently hidden</strong></span><button id="clearSkippedButton" class="text-button" type="button">Clear</button></div>
-        <div id="skippedList" class="activity-list"></div>
+          <span class="outcome-action">Activity <i aria-hidden="true">→</i></span>
+        </button>
+        <button id="homeNotice" class="quiet-notice" type="button" hidden></button>
       </section>
 
-      <details class="diagnostics">
-        <summary><span><i aria-hidden="true">...</i><strong>Settings & help</strong></span><span aria-hidden="true">v</span></summary>
-        <div class="diagnostics-body">
-          <label class="model-field" for="inferenceMode">
-            <span>Where deeper checks run</span>
-            <select id="inferenceMode">
-              <option value="local">This computer</option>
-              <option value="hybrid">Hybrid - Fast first, Heavy when needed</option>
-            </select>
+      <section id="activityView" class="view" data-view="activity" hidden>
+        <header class="view-header">
+          <button id="activityBackButton" class="back-button" type="button" aria-label="Back to Orislop"><span aria-hidden="true">←</span> Back</button>
+          <button id="clearSkippedButton" class="text-button" type="button">Clear</button>
+        </header>
+        <div class="view-title">
+          <p>Activity</p>
+          <h2>Quietly removed</h2>
+        </div>
+        <div class="activity-summary" aria-label="Filtering totals">
+          <span><strong id="lifetimeRemovedCount">—</strong><small>removed</small></span>
+          <span><strong id="minutesSaved">—</strong><small>time saved</small></span>
+        </div>
+        <div id="skippedList" class="activity-list" aria-live="polite"></div>
+      </section>
+
+      <section id="preferencesView" class="view" data-view="preferences" hidden>
+        <header class="view-header">
+          <button id="preferencesBackButton" class="back-button" type="button" aria-label="Back to Orislop"><span aria-hidden="true">←</span> Back</button>
+        </header>
+        <div class="view-title">
+          <p>Preferences</p>
+          <h2>What gets filtered</h2>
+          <span id="preferenceCount">Loading preferences…</span>
+        </div>
+
+        <section class="settings-section" aria-labelledby="filteringPreferencesTitle">
+          <h3 id="filteringPreferencesTitle">Filtering</h3>
+          <label class="setting-row">
+            <span><strong>Hide filtered items</strong><small>Remove them before they reach you.</small></span>
+            <input id="hideSkippedToggle" type="checkbox" role="switch" aria-label="Hide filtered feed items" aria-checked="true" />
+            <i class="row-switch" aria-hidden="true"></i>
           </label>
-          <label class="model-field" for="performanceMode">
-            <span>Scanning speed</span>
-            <select id="performanceMode">
-              <option value="auto">Automatic (recommended)</option>
-              <option value="fast">Fast - lightweight visual scan</option>
-              <option value="heavy">Heavy - full visual pipeline</option>
-            </select>
-          </label>
-          <small id="performanceNote" class="performance-note" role="status" aria-live="polite"></small>
-          <div id="cloudSettings" class="cloud-settings" hidden>
-            <label class="model-field" for="cloudApiUrl"><span>Cloud API URL</span><input id="cloudApiUrl" type="url" value="https://api.orislop.com" spellcheck="false" /></label>
-            <section id="cloudDisclosure" class="cloud-disclosure">
-              <strong>Enable Cloud Heavy</strong>
-              <p>When enabled, Orislop sends an item identifier, platform, language, duration, and an expiring media URL for analysis. LinkedIn videos are sent only after you open or play them. Ordinary media is deleted within 60 seconds and the URL is never stored.</p>
-              <button id="cloudSignInButton" type="button">Sign in with Google and enable Cloud Heavy</button>
-              <small>Requests only openid, email, and profile. Local Fast keeps working if cloud analysis is unavailable.</small>
+          <div id="filterGroupList" class="setting-list" aria-label="Filtering groups"></div>
+        </section>
+
+        <details id="fineTunePanel" class="disclosure">
+          <summary><span><strong>More filters</strong><small>Optional, individual choices.</small></span><i aria-hidden="true">⌄</i></summary>
+          <div id="slopPreferenceGrid" class="slop-preference-grid" aria-label="Individual filtering preferences"></div>
+        </details>
+
+        <details id="advancedSettingsPanel" class="disclosure advanced-settings">
+          <summary><span><strong>Help</strong><small>Scan or troubleshoot.</small></span><i aria-hidden="true">⌄</i></summary>
+          <div class="advanced-body">
+            <section class="advanced-block help-block">
+              <p>Orislop checks every video with full protection.</p>
+              <button id="scanNowButton" class="secondary-button" type="button">Scan this page</button>
+              <button id="copyDiagnosticsButton" class="text-button" type="button">Copy troubleshooting info</button>
+              <button id="clearAllDataButton" class="danger-text" type="button">Clear local data</button>
             </section>
-            <section id="cloudAccount" class="cloud-account" hidden>
-              <span><strong id="cloudAccountName">Google account</strong><small id="cloudAccountEmail"></small></span>
-              <small id="cloudQuotaStatus">Checking quota...</small>
-              <div class="cloud-account-actions">
-                <button id="cloudSignOutButton" type="button">Sign out</button>
-                <button id="cloudDeleteAccountButton" class="danger-button" type="button">Delete account</button>
+
+            <div class="legacy-settings-contract" hidden aria-hidden="true">
+              <span id="inferenceLocation">Local filtering</span>
+              <label class="field-row" for="inferenceMode">
+                <span>Location</span>
+                <select id="inferenceMode">
+                  <option value="local">This computer</option>
+                  <option value="hybrid">Hybrid · local + cloud</option>
+                </select>
+              </label>
+              <label class="field-row" for="performanceMode">
+                <span>Performance</span>
+                <select id="performanceMode" disabled>
+                  <option value="heavy">Heavy · always on</option>
+                </select>
+              </label>
+              <p id="performanceNote" class="field-note" role="status" aria-live="polite"></p>
+              <div id="cloudSettings" class="cloud-settings" hidden>
+                <label class="field-row" for="cloudApiUrl"><span>Cloud service</span><input id="cloudApiUrl" type="url" value="https://api.orislop.com" spellcheck="false" /></label>
+                <section id="cloudDisclosure" class="cloud-disclosure">
+                  <strong>Cloud analysis</strong>
+                  <p>Orislop sends limited item context and an expiring media URL only when a deeper check is needed. Ordinary media is deleted within 60 seconds.</p>
+                  <button id="cloudSignInButton" class="secondary-button" type="button">Sign in with Google and enable Cloud Heavy</button>
+                </section>
+                <section id="cloudAccount" class="cloud-account" hidden>
+                  <span><strong id="cloudAccountName">Google account</strong><small id="cloudAccountEmail"></small></span>
+                  <small id="cloudQuotaStatus">Checking quota…</small>
+                  <div><button id="cloudSignOutButton" type="button">Sign out</button><button id="cloudDeleteAccountButton" class="danger-text" type="button">Delete account</button></div>
+                </section>
               </div>
-            </section>
+              <div class="engine-row"><span>Context</span><strong id="ollamaStatus" role="status" aria-live="polite">Checking…</strong><button id="testOllamaButton" type="button">Test</button></div>
+              <div class="engine-row"><span>Media</span><strong id="detectorStatus" role="status" aria-live="polite">Checking…</strong><button id="testDetectorButton" type="button">Test</button></div>
+              <div class="engine-row"><span>Evidence</span><strong id="factCheckStatus" role="status" aria-live="polite">Checking…</strong><button id="testFactCheckerButton" type="button">Test</button></div>
+              <label class="field-row" for="ollamaModel"><span>Context model</span><input id="ollamaModel" type="text" value="orislop-qwen2.5:1.5b-instruct" spellcheck="false" /></label>
+              <details class="model-details">
+                <summary>Installed visual models</summary>
+                <code>umm-maybe/AI-image-detector</code>
+                <code>gonnerthetooner/orislop-fusion</code>
+                <code>prithivMLmods/Deepfake-Detection-Exp-02-21</code>
+                <code>MusapYildiz/aegis-video-detector · motion only</code>
+              </details>
+            </div>
           </div>
-          <div class="diagnostic-row">
-            <span><strong>Context engine</strong><small id="ollamaStatus" class="connection-status" role="status" aria-live="polite"></small></span>
-            <button id="testOllamaButton" type="button">Test</button>
-          </div>
-          <details class="technical-settings">
-            <summary>Technical settings</summary>
-            <label class="model-field" for="ollamaModel"><span>Context model</span><input id="ollamaModel" type="text" value="qwen2.5:1.5b-instruct" spellcheck="false" /></label>
-          </details>
-
-          <div class="diagnostic-row">
-            <span><strong>Visual engine</strong><small id="detectorStatus" class="connection-status" role="status" aria-live="polite"></small></span>
-            <button id="testDetectorButton" type="button">Test</button>
-          </div>
-          <details class="technical-settings model-stack" aria-label="Visual model details">
-            <summary>Visual model details</summary>
-            <code>umm-maybe/AI-image-detector</code>
-            <code>gonnerthetooner/orislop-fusion</code>
-            <code>prithivMLmods/Deepfake-Detection-Exp-02-21</code>
-            <code>MusapYildiz/aegis-video-detector - motion only</code>
-          </details>
-
-          <div class="diagnostic-row">
-            <span><strong>Evidence engine</strong><small id="factCheckStatus" class="connection-status" role="status" aria-live="polite"></small></span>
-            <button id="testFactCheckerButton" type="button">Test</button>
-          </div>
-
-          <div id="localSetupNote" class="setup-note">
-            <strong>Local companion</strong>
-            <span>Open Orislop Companion on this computer to turn on every deeper check.</span>
-            <details class="technical-settings">
-              <summary>Manual start commands</summary>
-              <code>ollama run qwen2.5:1.5b-instruct</code>
-              <code>pnpm detector:start</code>
-              <code>pnpm fact-check:setup</code>
-            </details>
-          </div>
-          <button id="copyDiagnosticsButton" class="secondary-button" type="button">Copy diagnostics</button>
-          <button id="clearAllDataButton" class="danger-button" type="button">Clear local Orislop data</button>
-        </div>
-      </details>
-
-      <section id="clearConfirmation" class="clear-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="clearConfirmationText" hidden>
-        <strong id="clearConfirmationText">Clear local data?</strong>
-        <span>This removes activity and engine status from this browser.</span>
-        <div><button id="cancelClearButton" type="button">Cancel</button><button id="confirmClearButton" type="button">Clear data</button></div>
+        </details>
       </section>
 
-      <p id="popupStatus" class="popup-status" role="status" aria-live="polite"></p>
-      <footer><span><i aria-hidden="true"></i><span id="inferenceLocation">Private local protection</span></span><span>v1.3.0</span></footer>
+      <section id="clearConfirmation" class="confirmation" role="alertdialog" aria-modal="true" aria-labelledby="clearConfirmationText" hidden>
+        <div>
+          <strong id="clearConfirmationText">Clear local data?</strong>
+          <span>This removes activity and saved engine status from this browser.</span>
+          <p><button id="cancelClearButton" type="button">Cancel</button><button id="confirmClearButton" class="danger-button" type="button">Clear</button></p>
+        </div>
+      </section>
+
+      <p id="popupStatus" class="toast" role="status" aria-live="polite"></p>
     </main>
     <script src="oauthConfig.generated.js"></script>
     <script src="slopPreferences.js"></script>

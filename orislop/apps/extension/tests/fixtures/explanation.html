@@ -106,8 +106,8 @@
 
       queueMicrotask(() => {
         const panel = normal.querySelector(".orislop-explanation-panel");
-        const source = panel?.querySelector(".orislop-explanation-sources a");
         const wrongPanel = wrong.querySelector(".orislop-explanation-panel");
+        const source = wrongPanel?.querySelector(".orislop-explanation-sources a");
         const chatForm = wrongPanel?.querySelector(".orislop-fact-chat-form");
         const chatInput = chatForm?.querySelector("input");
         if (chatInput && chatForm) {
@@ -115,7 +115,7 @@
           chatForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
         }
         queueMicrotask(() => queueMicrotask(() => {
-          document.body.dataset.result = encodeURIComponent(JSON.stringify({
+          const observed = {
             explainButton: normal.querySelector(".orislop-explain-button")?.textContent || "",
             panelText: panel?.textContent || "",
             panelInsideMedia: panel?.parentElement?.classList.contains("media") === true,
@@ -129,6 +129,23 @@
             chatText: wrongPanel?.querySelector(".orislop-fact-chat-messages")?.textContent || "",
             liveIndicatorText: document.querySelector(".orislop-live-indicator")?.textContent || "",
             liveIndicatorVisible: document.querySelector(".orislop-live-indicator")?.classList.contains("orislop-live-indicator-visible") === true
+          };
+          const closeButton = panel?.querySelector(".orislop-explanation-close");
+          const closeLabel = closeButton?.getAttribute("aria-label") || "";
+          closeButton?.click();
+          const closedByButton = !normal.querySelector(".orislop-explanation-panel");
+          normal.querySelector(".orislop-explain-button")?.click();
+          document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          const closedByEscape = !normal.querySelector(".orislop-explanation-panel");
+          normal.querySelector(".orislop-explain-button")?.click();
+          document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+          const closedByOutsideClick = !normal.querySelector(".orislop-explanation-panel");
+          document.body.dataset.result = encodeURIComponent(JSON.stringify({
+            ...observed,
+            closeLabel,
+            closedByButton,
+            closedByEscape,
+            closedByOutsideClick
           }));
         }));
       });

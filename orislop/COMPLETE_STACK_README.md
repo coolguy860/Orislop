@@ -67,21 +67,21 @@ renames, moves, or writes.
 
 The final output prints a full immutable HF revision. Save that revision.
 
-## Start on Vast/RTX 3090
+## Start on Vast/RTX 3090 or RTX 5090
 
-From the extracted source directory, set the revision printed by Colab and a
-private operator environment file, then run:
+This production copy already pins the published revision and manifest receipt.
+Provide a newly rotated read-only `HF_TOKEN` through the private instance
+environment, then run from the extracted source directory:
 
 ```bash
-export ORISLOP_COMPLETE_STACK_REVISION=PUT_THE_FULL_40_CHARACTER_COMMIT_HERE
-export ORISLOP_ENV_FILE=/secure/path/orislop-private.env
-bash scripts/vast3090-complete-bootstrap.sh
+bash scripts/start-vast-extension-test.sh "$PWD"
 ```
 
-The bootstrap downloads the one HF release, verifies the full manifest,
-creates an Ollama model from the bundled verified GGUF, and starts the strict
-full-stack readiness checks. It will refuse startup if a required artifact or
-hash is wrong.
+The noninteractive launcher downloads the one HF release resumably, verifies
+the full manifest, creates an Ollama model from the bundled verified GGUF, and
+starts detached strict full-stack readiness checks. It will refuse startup if
+a required artifact or hash is wrong. See `VAST_PRODUCTION_DEPLOY.md` for exact
+rental, lifecycle, and private-tunnel commands.
 
 ## Model boundaries that must not be confused
 

@@ -1,4 +1,17 @@
-# Orislop Shield
+# Orislop
+
+> **One-command Windows start:** see [ONE_COMMAND_START.md](ONE_COMMAND_START.md).
+> `START_ORISLOP_VAST.ps1` uploads/resumes the Vast package, waits for the real
+> GPU `/ready` state, and opens the private `127.0.0.1:4317` SSH tunnel.
+
+> **Vast production v4:** use [VAST_PRODUCTION_DEPLOY.md](VAST_PRODUCTION_DEPLOY.md).
+> The default detector is private at `127.0.0.1:4317` and is reached through
+> an SSH tunnel. The new launcher is noninteractive, resumable, detached, and
+> protected by a lifecycle lock/PID receipt. It pins model revision
+> `09f0510580de5a8c11393adc7d7905ab40b200ab` and manifest SHA-256
+> `f64fecb421f435cdd7e7e46374a965ea4708ae509a19c761a64e7314fef5c7dc`.
+> A missing `HF_TOKEN` fails before installation or download and is never
+> prompted for, logged, written into `model.env`, or passed to the detector.
 
 > **First-run autotune 1.3:** the first representative Heavy video benchmarks
 > every VRAM-safe execution layout, rejects OOM or output-changing plans, and
@@ -12,8 +25,9 @@
 > **Complete-stack v7:** See [COMPLETE_STACK_README.md](COMPLETE_STACK_README.md)
 > for the coherent Drive-to-HF model assembler and verified Vast launcher.
 
-> **Vast RTX 3090 copy:** This folder is the isolated Vast.ai deployment copy.
-> Start with [VAST_RTX3090_DEPLOY.md](VAST_RTX3090_DEPLOY.md). The original
+> **Vast GPU copy:** This folder is the isolated Vast.ai deployment copy for
+> CUDA-capable NVIDIA GPUs including RTX 3090 and RTX 5090. Start with
+> [VAST_PRODUCTION_DEPLOY.md](VAST_PRODUCTION_DEPLOY.md). The original
 > `orislop_launch_ready` folder is intentionally unchanged. Vast instances do
 > not support nested Docker Compose; this copy adds a single-container image,
 > supervisor, strict full-model preflight, bootstrap, and hosted smoke test.
@@ -27,9 +41,9 @@
 > releases, and produces the exact pinned Vast configuration. See
 > `docs/PUBLISH_DRIVE_MODELS_TO_HF.md`.
 
-Version 1.3 adds first-run full-stack benchmarking and persistent hardware/model-specific strategy selection. Version 1.2 added resource-aware concurrent Heavy execution without removing any detector branch. Version 1.1 added annotation-first LinkedIn protection for posts, profiles, image-text claims, likely AI-written prose, on-open video analysis, explanations, and grounded follow-up chat. See [docs/LINKEDIN_PROTECTION.md](docs/LINKEDIN_PROTECTION.md).
+Version 1.4 is the focused YouTube MVP: filtering is enabled immediately, the user-facing extension runs only on YouTube and YouTube Shorts, and every eligible video uses the Heavy path. The broader model, training, and companion code in this repository remains available for development, but it is not advertised as part of the shipped MVP.
 
-Orislop Shield is a privacy-conscious feed protection suite for YouTube, Instagram Reels, TikTok, and LinkedIn. It looks ahead without scrolling, combines language context with lightweight and heavyweight visual verification, and removes Skip-rated short-form items before they reach the user. LinkedIn is annotation-first and does not automatically hide professional content. The unlisted beta is Windows-first Hybrid: Local Fast owns new items while Cloud Heavy warms, then ready Cloud Heavy owns only items that have not been decided yet.
+Orislop automatically filters low-value, synthetic, repetitive, and engagement-bait videos from YouTube and Shorts before they take over the feed. It starts without onboarding or a Start filtering button. The extension UI deliberately stays small: a protected state, a compact activity view, preferences, and reversible Show/Hide controls. The full Heavy visual pipeline still depends on the private Orislop companion on the user's device.
 
 The suite includes:
 
@@ -46,19 +60,16 @@ The suite includes:
 
 - Decisions are binary: **Don't skip** or **Skip**.
 - The extension examines at most the next 10 visible candidates and never scrolls the feed.
-- Dedicated Instagram and TikTok adapters use semantic fields plus bounded video-root fallbacks instead of page-wide scanning.
-- Performance mode defaults to **Automatic**. Browser CPU and memory hints select Fast on weaker or uncertain local hardware and Heavy on clearly capable hardware; users can override either choice.
-- **Fast** keeps Qwen and the strict lightweight visual detector active without loading the large spatial or temporal models; when a platform preview is available, it analyzes that bounded image instead of downloading the full video.
-- **Heavy** runs the complete pinned stack. The promoted Temporal MoE is package-integrity checked and acts as strict corroboration, the real joint AV expert is required, and the old public Temporal checkpoints cannot vote. Independent branches overlap only when live VRAM headroom says that is safe.
-- **Hybrid** gives every item one immutable visible decision. Automatic stays Fast-first and selectively escalates. Explicit Heavy sends every item with a usable media stream to Cloud Heavy; capable clients overlap bounded local context preparation with that request. A cloud miss still fails open to Local Fast.
+- The shipped manifest matches only YouTube and YouTube Shorts. Instagram, TikTok, LinkedIn, and cloud API permissions are intentionally absent from the MVP.
+- **Heavy** is locked on for eligible YouTube videos. The promoted Temporal MoE is package-integrity checked and acts as strict corroboration, the real joint AV expert is required, and the old public Temporal checkpoints cannot vote.
 - A strict lightweight visual model responds first while spatial and temporal models load.
 - Reveal/undo remains reversible, but an automatic Fast/Heavy result never flips after it becomes visible.
 - Explicit synthetic disclosures and strong model evidence remain non-vetoable Skip decisions.
 - When a required engine is unavailable, uncertain content fails open and stays visible.
-- Local mode keeps model inference and temporary media on the device. After explicit consent, Hybrid may send item metadata and an expiring direct media URL to `api.orislop.com`; browser cookies and site credentials are never sent, the URL is never persisted, and ordinary media is deleted within 60 seconds.
-- Skip covers continuously pause and mute their media until the user chooses Don't skip, and the popup totals known skipped runtime as time saved.
+- Local mode keeps model inference and temporary media on the device through the companion. Browser cookies and site credentials are never sent, the URL is never persisted, and ordinary media is deleted within 60 seconds.
+- Skip covers pause and mute only their own media without blocking native feed gestures. Each unique skipped video counts as exactly 20 seconds saved.
 - The toolbar badge always shows `ON`, `OFF`, an alert, or the latest hidden-item count. A brief on-page confirmation and the popup's Live Scanner show when Orislop is actively checking the current feed, with a one-click fresh scan.
-- **Explain video** asks Qwen for a plain-language account grounded in the captured title, captions, and transcript. A source-contradicted Skip instead offers **Why is this wrong?**, which explains Orislop's decision from the retained trusted evidence and links directly to those sources.
+- The removed Explain video/Ask Orislop flow is intentionally absent from the YouTube MVP; filtered items expose only Show and Hide.
 
 ## Requirements
 
@@ -121,7 +132,7 @@ pnpm orislop:autostart:install
 pnpm orislop:autostart:remove
 ```
 
-After the one-time install, Automatic performance mode and the logon task require no daily setup. Browser hardware values are approximate privacy-preserving hints, so ambiguous PCs default to Fast and the popup always shows the effective choice.
+For the YouTube MVP, filtering is enabled immediately and Heavy is locked on. The companion still needs its one-time local configuration; the extension itself has no setup screen or daily filter prompt.
 
 For a one-run production extension origin override (the persistent setup command above is preferred):
 
@@ -138,7 +149,7 @@ Build the load-unpacked directory:
 pnpm extension:build
 ```
 
-Load `apps/extension/dist` from `chrome://extensions`, `brave://extensions`, or `edge://extensions`. The dedicated Chrome Web Store upload artifact is `dist/orislop-browser-extension-webstore.zip`; its build fails if the forbidden manifest `key` field or any required release file is missing. See [the store release guide](docs/CHROME_WEB_STORE.md).
+Load `apps/extension/dist` from `chrome://extensions`, `brave://extensions`, or `edge://extensions`. The Chrome Web Store upload artifact is produced at `dist/orislop-browser-extension.zip`.
 
 ## Cloud inference
 
@@ -176,7 +187,7 @@ pnpm web:build
 pnpm web:preview
 ```
 
-Vercel uses `vercel.json`, builds with `pnpm run web:build`, and publishes `apps/web/dist`. Same-origin serverless routes securely proxy the optional live context check, so `ORISLOP_WEB_API_TOKEN` never reaches the browser. Without those variables, the site remains useful through its instant on-device checker and labels live AI as unavailable. Follow [the web production guide](docs/WEB_PRODUCTION.md).
+Vercel uses `vercel.json`, builds with `pnpm run web:build`, and publishes `apps/web/dist`. The same build embeds the exact verified extension ZIP offered by the product site.
 
 ## Production gate
 
@@ -193,8 +204,8 @@ GitHub Actions runs the same gate for pull requests and `main` pushes.
 ## Security and privacy
 
 - Local mode binds only to `127.0.0.1`; Cloud Heavy requires TLS, Google account sessions, quotas, and an exact extension-origin allowlist.
-- Inference POST requests require an approved Chrome-extension or website server-proxy origin.
-- Production restricts requests to exact extension and website origins; wildcards are not supported.
+- Inference POST requests require an approved Chrome-extension origin.
+- Production can restrict requests to exact extension origins.
 - Media acquisition uses exact page-host and media-CDN allowlists, safe redirect validation, response type checks, and a 120 MB limit.
 - Cloud ordinary media stays in tmpfs for no more than 60 seconds. Only an explicit report may retain an encrypted eight-second 360p clip for seven days.
 - The extension requests storage, Chrome Identity, supported-feed, `api.orislop.com`, Ollama loopback, and detector loopback access.

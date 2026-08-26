@@ -15,6 +15,7 @@ REPO_ROOT = BRIDGE_ROOT.parents[1]
 sys.path.insert(0, str(BRIDGE_ROOT))
 
 import server
+import fact_check_service
 from fact_check_service import (
     FactCheckJob,
     FactCheckService,
@@ -24,6 +25,7 @@ from fact_check_service import (
     extract_linkedin_image_text,
     is_informational_text,
     rating_polarity,
+    sanitize_model,
     source_authority,
     trusted_domains_for_verdict,
     validate_ollama_url,
@@ -55,6 +57,18 @@ class MockFactCheckService(FactCheckService):
 
 
 class BridgeContractTests(unittest.TestCase):
+    def test_vast_model_alias_migrates_legacy_extension_requests(self) -> None:
+        with mock.patch.object(fact_check_service, "DEFAULT_OLLAMA_MODEL", fact_check_service.ORISLOP_OLLAMA_MODEL):
+            self.assertEqual(
+                sanitize_model(fact_check_service.LEGACY_OLLAMA_MODEL),
+                fact_check_service.ORISLOP_OLLAMA_MODEL,
+            )
+        with mock.patch.object(fact_check_service, "DEFAULT_OLLAMA_MODEL", fact_check_service.LEGACY_OLLAMA_MODEL):
+            self.assertEqual(
+                sanitize_model(fact_check_service.ORISLOP_OLLAMA_MODEL),
+                fact_check_service.LEGACY_OLLAMA_MODEL,
+            )
+
     def test_ollama_url_allows_only_loopback_or_explicit_internal_host(self) -> None:
         self.assertEqual(validate_ollama_url("http://127.0.0.1:11434"), "http://127.0.0.1:11434")
         with mock.patch("fact_check_service.TRUSTED_OLLAMA_HOST", "ollama"):
@@ -531,7 +545,50 @@ class BridgeContractTests(unittest.TestCase):
         self.assertNotIn("system", prompt.lower())
         self.assertEqual(captured["body"]["format"]["required"], ["answer", "uncertainty"])
         self.assertEqual(captured["body"]["options"]["temperature"], 0)
-        self.assertEqual(captured["body"]["options"]["num_predict"], 240)
+        self.assertEqual(captured["body"]["options"]["num_predict"], 160)
+
+    def test_general_video_chat_stays_about_the_video_without_fact_check_gates(self) -> None:
+        captured: dict = {}
+
+        def fake_request_json(url: str, headers: dict, *, method: str, body: dict, timeout: float) -> dict:
+            captured.update({"url": url, "body": body, "timeout": timeout})
+            return {
+                "response": json.dumps({
+                    "answer": "The video explains how water droplets separate sunlight into visible colors.",
+                    "uncertainty": "Only the supplied captions were available.",
+                })
+            }
+
+        transcript = "The teacher explains that sunlight bends and separates into visible colors inside water droplets."
+        service = server.TextSlopService()
+        with mock.patch.object(server, "request_json", side_effect=fake_request_json):
+            result = service.explain({
+                "model": "qwen2.5:1.5b-instruct",
+                "mode": "chat_video",
+                "question": "Can you summarize this video?",
+                "candidate": {
+                    "platform": "instagram",
+                    "title": "How rainbows form",
+                    "visibleText": "A short science lesson",
+                    "transcriptText": transcript,
+                    "channelName": "Example teacher",
+                },
+                "decision": {
+                    "recommendation": "skip",
+                    "reasons": ["Detector-only reason must stay out of ordinary chat"],
+                    "factCheck": {"verdict": "", "sources": []},
+                },
+            })
+
+        self.assertEqual(result["mode"], "chat_video")
+        self.assertIn("water droplets", result["answer"])
+        prompt = captured["body"]["prompt"]
+        self.assertIn("concise chatbot about one video", prompt)
+        self.assertIn("How rainbows form", prompt)
+        self.assertNotIn("Orislop verdict", prompt)
+        self.assertNotIn("Detector-only reason", prompt)
+        self.assertEqual(captured["body"]["options"]["num_ctx"], 1536)
+        self.assertEqual(captured["body"]["options"]["num_predict"], 112)
 
     def test_lightweight_results_are_strict_and_provisional(self) -> None:
         synthetic = server.build_lightweight_result({
@@ -684,6 +741,7 @@ class BridgeContractTests(unittest.TestCase):
             item_id="decision",
             page_url="https://www.youtube.com/shorts/example",
             media_url="",
+            media_upload_id="",
             preview_url="",
             performance_profile="heavy",
             language="en",
@@ -720,6 +778,7 @@ class BridgeContractTests(unittest.TestCase):
             item_id="fast-no-preview",
             page_url="https://www.youtube.com/shorts/example",
             media_url="https://r1.googlevideo.com/video.mp4",
+            media_upload_id="",
             preview_url="",
             performance_profile="fast",
             language="en",

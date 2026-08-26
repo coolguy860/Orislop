@@ -50,26 +50,6 @@ In a second PowerShell window, prove the bridge is both ready and private:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-extension-bridge.ps1
 ```
 
-Then run one real Heavy video through the private tunnel. Use a public video URL
-that the GPU host can reach:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-extension-bridge.ps1 -VideoUrl "https://YOUR_PUBLIC_TEST_VIDEO" -PerformanceProfile heavy
-```
-
-This second command waits for the asynchronous detector decision, fails if the
-media was unavailable, and prints the final decision plus scheduler/autotune
-telemetry. The first representative Heavy video may take longer because it also
-benchmarks safe execution layouts and caches the fastest output-equivalent one.
-
-In another SSH terminal on the GPU host, the following check independently
-proves that CUDA plus every spatial, frame, motion, temporal, AV/lip-sync, and
-Ollama component is ready:
-
-```bash
-/opt/orislop-venv/bin/python scripts/vast3090-smoke.py
-```
-
 ## 3. Load the extension
 
 1. Open `chrome://extensions`.

@@ -7,3 +7,4 @@ if ($Task) {
 } else {
   Write-Host "The Orislop Companion logon task is not installed." -ForegroundColor Yellow
 }
+

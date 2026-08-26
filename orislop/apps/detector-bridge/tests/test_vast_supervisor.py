@@ -179,8 +179,8 @@ class VastSupervisorTests(unittest.TestCase):
         self.assertFalse(any("40-character commit" in error for error in pinned_errors))
         self.assertFalse(any("full-stack HF artifact package" in error for error in pinned_errors))
 
-    def test_3090_auto_placement_reserves_gpu_for_detectors(self) -> None:
-        self.assertEqual(vast.choose_ollama_device("auto", 24 * 1024), "cpu")
+    def test_3090_auto_placement_uses_gpu_when_capacity_permits(self) -> None:
+        self.assertEqual(vast.choose_ollama_device("auto", 24 * 1024), "gpu")
         self.assertEqual(vast.choose_ollama_device("auto", 48 * 1024), "gpu")
         self.assertEqual(vast.choose_ollama_device("gpu", 24 * 1024), "gpu")
 
@@ -204,9 +204,10 @@ class VastSupervisorTests(unittest.TestCase):
             self.assertEqual(child["ORISLOP_TEMPORAL_ROLLOUT"], "corroborated")
 
     def test_parses_nvidia_smi_csv(self) -> None:
-        parsed = vast.parse_gpu_csv("NVIDIA GeForce RTX 3090, 24576, 580.95")
+        parsed = vast.parse_gpu_csv("NVIDIA GeForce RTX 3090, 24576, 24001, 580.95")
         self.assertEqual(parsed["name"], "NVIDIA GeForce RTX 3090")
         self.assertEqual(parsed["memory_mib"], 24576)
+        self.assertEqual(parsed["free_memory_mib"], 24001)
         self.assertEqual(parsed["driver"], "580.95")
 
     def test_redacts_tunnel_token_from_process_log_command(self) -> None:
@@ -249,7 +250,7 @@ class VastSupervisorTests(unittest.TestCase):
         child = vast.detector_environment(environment)
         self.assertEqual(child["ORISLOP_API_TOKENS"], "api-token")
         self.assertEqual(child["ORISLOP_S3_SECRET_ACCESS_KEY"], "s3-secret")
-        self.assertEqual(child["HF_TOKEN"], "hf-secret")
+        self.assertNotIn("HF_TOKEN", child)
         self.assertNotIn("CLOUDFLARE_TUNNEL_TOKEN", child)
         self.assertNotIn("VAST_CONTAINER_API_KEY", child)
 

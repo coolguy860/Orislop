@@ -190,15 +190,15 @@ assert.ok(appSource.includes("AI classifier predicted"));
 assert.ok(shippedWebSource.includes("Spatiotemporal detector was not run"));
 assert.ok(appSource.includes("Optional channel name"));
 assert.ok(appSource.includes("Optional transcript"));
-assert.ok(appSource.includes("Clear reasons"));
+assert.ok(appSource.includes("Fails closed"));
 assert.ok(appSource.includes("Low-value videos that look repetitive"));
-assert.ok(appSource.includes("Orislop Shield 1.3"));
+assert.ok(appSource.includes("Orislop 1.4"));
+assert.ok(appSource.includes("Open YouTube. Keep the good stuff."));
+assert.ok(appSource.includes("No setup screens"));
+assert.ok(appSource.includes("YouTube and YouTube Shorts only"));
 assert.ok(appSource.includes("Does this result feel right?"));
 assert.ok(appSource.includes("How Orislop made this score"));
-assert.ok(appSource.includes("Instant protection is ready"));
-assert.ok(appSource.includes("Live context AI is taking a second look"));
-assert.ok(appSource.includes("Your instant on-device result is still ready"));
-assert.ok(appSource.includes("Protection that stays out of your way"));
+assert.ok(appSource.includes("weighted features, local inference"));
 assert.ok(appSource.includes("Supported: MP4, WebM, MOV, M4V, or OGV"));
 assert.ok(appSource.includes("privacy.html"));
 
@@ -208,13 +208,14 @@ assert.ok(privacySource.includes("does not upload local video files"));
 assert.ok(privacySource.includes("Clear all local Orislop data"));
 assert.ok(privacySource.includes("Source-Backed Fact Checking"));
 assert.ok(privacySource.includes("claim search queries"));
-assert.ok(privacySource.includes("https://api.orislop.com"));
+assert.ok(!privacySource.includes("https://api.orislop.com"));
 assert.ok(privacySource.includes("does not receive browser cookies"));
-assert.ok(privacySource.includes("up to six hours"));
+assert.ok(privacySource.includes("Temporary companion media is deleted after analysis"));
+assert.ok(privacySource.includes("Extension 1.4.0 runs only on YouTube and YouTube Shorts"));
 
 const releaseInfo = JSON.parse(readFileSync(releaseInfoPage, "utf8"));
-assert.equal(releaseInfo.releaseId, "orislop-shield-web-1.3.0-2026-08-18");
-assert.ok(appSource.includes("Protection that stays out of your way."));
+assert.equal(releaseInfo.releaseId, "orislop-youtube-web-1.4.0-2026-08-25");
+assert.ok(appSource.includes("Install once. Open YouTube."));
 assert.ok(releaseInfo.requiredQaFixes.includes("privacy.html included at archive root"));
 assert.ok(releaseInfo.requiredQaFixes.includes("file:// fallback explains that the static app must be served over HTTP"));
 assert.ok(releaseInfo.requiredQaFixes.includes("Orislop AI Classifier v1 runs locally over text/metadata"));
@@ -238,81 +239,4 @@ const indexHtml = readFileSync(path.join(repoRoot, "apps", "web", "dist", "index
 assert.ok(indexHtml.includes("Serve this build over HTTP."));
 assert.ok(indexHtml.includes("pnpm run web:preview"));
 
-const statusHandler = (await import(pathToFileURL(path.join(repoRoot, "api", "status.mjs")).href)).default;
-const analyzeHandler = (await import(pathToFileURL(path.join(repoRoot, "api", "analyze.mjs")).href)).default;
-const originalFetch = globalThis.fetch;
-const originalApiUrl = process.env.ORISLOP_AI_API_URL;
-const originalApiToken = process.env.ORISLOP_WEB_API_TOKEN;
-const originalWebOrigin = process.env.ORISLOP_WEB_ORIGIN;
-try {
-  delete process.env.ORISLOP_AI_API_URL;
-  delete process.env.ORISLOP_WEB_API_TOKEN;
-  const unconfigured = await invokeHandler(statusHandler, { method: "GET" });
-  assert.equal(unconfigured.statusCode, 200);
-  assert.equal(unconfigured.payload.status, "not_configured");
-
-  const invalidRequest = await invokeHandler(analyzeHandler, { method: "POST", headers: { origin: "https://orislop.com" }, body: { url: "https://example.com/video" } });
-  assert.equal(invalidRequest.statusCode, 400);
-  assert.equal(invalidRequest.payload.message, "Paste a valid YouTube link to continue.");
-
-  process.env.ORISLOP_AI_API_URL = "https://api.orislop.test";
-  process.env.ORISLOP_WEB_API_TOKEN = "test-server-only-token";
-  process.env.ORISLOP_WEB_ORIGIN = "https://orislop.com";
-  let upstreamRequest = null;
-  globalThis.fetch = async (url, init) => {
-    upstreamRequest = { url: String(url), init };
-    return new Response(JSON.stringify({
-      ok: true,
-      requestId: "public-request-id",
-      results: [{ available: true, verdict: "dont_skip", confidence: 0.93, category: "educational", reason: "Context AI protected useful content" }]
-    }), { status: 200, headers: { "Content-Type": "application/json" } });
-  };
-  const liveResult = await invokeHandler(analyzeHandler, {
-    method: "POST",
-    headers: { origin: "https://orislop.com" },
-    body: {
-      url: "https://www.youtube.com/watch?v=abc123",
-      title: "A useful repair tutorial",
-      description: "A step-by-step repair explanation.",
-      transcript: "",
-      channelName: "Helpful creator"
-    }
-  });
-  assert.equal(liveResult.statusCode, 200);
-  assert.equal(liveResult.payload.result.verdict, "dont_skip");
-  assert.equal(upstreamRequest.url, "https://api.orislop.test/v1/text-score");
-  assert.equal(upstreamRequest.init.headers.Authorization, "Bearer test-server-only-token");
-  assert.equal(upstreamRequest.init.headers.Origin, "https://orislop.com");
-  assert.ok(!JSON.stringify(liveResult.payload).includes("test-server-only-token"));
-
-  const crossSite = await invokeHandler(analyzeHandler, {
-    method: "POST",
-    headers: { origin: "https://untrusted.example" },
-    body: { url: "https://www.youtube.com/watch?v=abc123", title: "Enough context to reach the origin check" }
-  });
-  assert.equal(crossSite.statusCode, 403);
-} finally {
-  globalThis.fetch = originalFetch;
-  restoreEnvironment("ORISLOP_AI_API_URL", originalApiUrl);
-  restoreEnvironment("ORISLOP_WEB_API_TOKEN", originalApiToken);
-  restoreEnvironment("ORISLOP_WEB_ORIGIN", originalWebOrigin);
-}
-
 console.log("web checks passed");
-
-async function invokeHandler(handler, request) {
-  const result = { statusCode: 200, payload: null, headers: {} };
-  const response = {
-    setHeader(name, value) { result.headers[name] = value; },
-    status(statusCode) { result.statusCode = statusCode; return this; },
-    json(payload) { result.payload = payload; return this; },
-    end() { return this; }
-  };
-  await handler(request, response);
-  return result;
-}
-
-function restoreEnvironment(name, value) {
-  if (value === undefined) delete process.env[name];
-  else process.env[name] = value;
-}
