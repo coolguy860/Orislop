@@ -40,6 +40,9 @@ void boot();
 
 async function boot() {
   try {
+    if (storage.isExtensionStorage && chrome.runtime?.sendMessage) {
+      await sendMessage({ type: "orislop.ensureFilterDefaults" });
+    }
     await render();
     finishLoading();
     if (storage.isExtensionStorage && chrome.runtime?.sendMessage) {

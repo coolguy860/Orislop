@@ -91,7 +91,7 @@ writeFileSync(path.join(distRoot, "release-info.json"), `${JSON.stringify({
     "a strict lightweight frame detector returns reversible provisional decisions while heavyweight models load",
     "the MVP forces every eligible video through Heavy analysis",
     "first-run Heavy autotuning rejects OOM, missing-expert, and output-changing layouts before persisting the fastest valid strategy",
-    "the canonical 11-category slop taxonomy defaults to filtering all categories",
+    "the canonical 12-category slop taxonomy defaults to filtering all categories and migrates older saved subsets once",
     "the same user choices gate local heuristics, Qwen categories, synthetic-media auto-skips, and contradicted-claim auto-skips",
     "decisions are cached by stable platform item id for consistent behavior",
     "the yellow decision cover is absolutely constrained to the video or Short surface",

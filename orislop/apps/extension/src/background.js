@@ -33,6 +33,8 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   const DEFAULT_MODEL = "orislop-qwen2.5:1.5b-instruct";
   const DEFAULT_CLOUD_API_URL = "https://api.orislop.com";
   const SETTINGS_KEY = "orislop.extension.settings";
+  const FILTER_DEFAULTS_VERSION_KEY = "orislop.extension.filterDefaultsVersion";
+  const FILTER_DEFAULTS_VERSION = 1;
   const CLOUD_ACCESS_KEY = "orislop.cloud.access";
   const CLOUD_REFRESH_KEY = "orislop.cloud.refresh";
   const CLOUD_ACCOUNT_KEY = "orislop.cloud.account";
@@ -48,14 +50,17 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   const browserMediaUploadInflight = new Map();
   let ollamaRequestLane = Promise.resolve();
   let localDetectorCapabilityCache = { checkedAt: 0, accelerator: "" };
+  let filterDefaultsPromise = null;
 
-  chrome.runtime.onInstalled?.addListener?.(() => void refreshBadgeFromSettings());
+  chrome.runtime.onInstalled?.addListener?.(() => {
+    void ensureInitialFilterDefaults().finally(refreshBadgeFromSettings);
+  });
   chrome.storage?.onChanged?.addListener?.((changes, areaName) => {
     if (areaName !== "local" || !changes[SETTINGS_KEY]) return;
     const enabled = changes[SETTINGS_KEY].newValue?.enabled !== false;
     setEnabledBadge(enabled);
   });
-  void refreshBadgeFromSettings();
+  void ensureInitialFilterDefaults().finally(refreshBadgeFromSettings);
 
   chrome.webRequest?.onBeforeRequest?.addListener?.(
     rememberObservedBrowserMedia,
@@ -74,6 +79,11 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
   );
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "orislop.ensureFilterDefaults") {
+      ensureInitialFilterDefaults().then(sendResponse);
+      return true;
+    }
+
     if (message?.type === "orislop.scoreBatch") {
       const candidates = Array.isArray(message.candidates) ? message.candidates.slice(0, MAX_BATCH_SIZE) : [];
       const tabId = Number.isInteger(sender?.tab?.id) ? sender.tab.id : -1;
@@ -192,6 +202,39 @@ importScripts("oauthConfig.generated.js", "slopPreferences.js", "aiClassifierMod
 
     return false;
   });
+
+  function ensureInitialFilterDefaults() {
+    if (filterDefaultsPromise) return filterDefaultsPromise;
+    if (!chrome.storage?.local?.get || !chrome.storage?.local?.set) {
+      return Promise.resolve({ ok: false, changed: false, error: "Extension storage is unavailable." });
+    }
+    if (!Array.isArray(globalThis.OrislopSlopPreferences?.defaultIds)) {
+      return Promise.resolve({ ok: false, changed: false, error: "Filtering definitions are unavailable." });
+    }
+    filterDefaultsPromise = (async () => {
+      try {
+        const stored = await chrome.storage.local.get([SETTINGS_KEY, FILTER_DEFAULTS_VERSION_KEY]);
+        if (Number(stored[FILTER_DEFAULTS_VERSION_KEY]) >= FILTER_DEFAULTS_VERSION) {
+          return { ok: true, changed: false };
+        }
+        const current = stored[SETTINGS_KEY] && typeof stored[SETTINGS_KEY] === "object"
+          ? stored[SETTINGS_KEY]
+          : {};
+        const slopPreferences = [...globalThis.OrislopSlopPreferences.defaultIds];
+        await chrome.storage.local.set({
+          [SETTINGS_KEY]: { ...current, slopPreferences },
+          [FILTER_DEFAULTS_VERSION_KEY]: FILTER_DEFAULTS_VERSION
+        });
+        return { ok: true, changed: true, preferenceCount: slopPreferences.length };
+      } catch (error) {
+        console.warn("Orislop could not initialize all filtering defaults", error);
+        return { ok: false, changed: false, error: "Filtering defaults could not be saved." };
+      } finally {
+        filterDefaultsPromise = null;
+      }
+    })();
+    return filterDefaultsPromise;
+  }
 
   async function scoreBatch(candidates, settings, tabId = -1) {
     candidates = await prepareBrowserMediaCandidates(candidates, settings, tabId);

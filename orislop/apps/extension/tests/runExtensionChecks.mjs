@@ -152,8 +152,35 @@ for (const [name, source] of [["slop preferences", slopPreferencesSource], ["cla
 }
 
 const classifier = createClassifierRuntime(slopPreferencesSource, generatedModel, classifierSource);
+const slopPreferences = createSlopPreferenceRuntime(slopPreferencesSource);
 const platformAdapters = createPlatformAdapterRuntime(platformAdaptersSource);
 const contentRuntime = createContentRuntime(contentSource);
+assert.equal(slopPreferences.definitions.length, 12, "the shipping taxonomy must contain all 12 filtering choices");
+assert.deepEqual(
+  Array.from(slopPreferences.defaultIds),
+  Array.from(slopPreferences.definitions, ({ id }) => id),
+  "a new install must enable every shipping filter"
+);
+assert.deepEqual(
+  Array.from(slopPreferences.normalize(undefined)),
+  Array.from(slopPreferences.defaultIds),
+  "missing preferences must normalize to all filters"
+);
+const filterDefaultsMigration = await createFilterDefaultsMigrationRuntime(background, Array.from(slopPreferences.defaultIds));
+assert.equal(filterDefaultsMigration.storage["orislop.extension.settings"].enabled, false, "the migration must preserve the existing master toggle");
+assert.deepEqual(
+  Array.from(filterDefaultsMigration.storage["orislop.extension.settings"].slopPreferences),
+  Array.from(slopPreferences.defaultIds),
+  "the first upgraded run must replace an older subset with every filter"
+);
+assert.equal(filterDefaultsMigration.storage["orislop.extension.filterDefaultsVersion"], 1, "the migration must record its schema version");
+filterDefaultsMigration.storage["orislop.extension.settings"].slopPreferences = ["compilations"];
+await filterDefaultsMigration.ensure();
+assert.deepEqual(
+  Array.from(filterDefaultsMigration.storage["orislop.extension.settings"].slopPreferences),
+  ["compilations"],
+  "later user choices must not be overwritten after the one-time migration"
+);
 assert.equal(
   contentRuntime.api.normalizeSettings({ ollamaModel: "qwen2.5:1.5b-instruct" }).ollamaModel,
   "orislop-qwen2.5:1.5b-instruct",
@@ -1336,6 +1363,9 @@ for (const label of ["AI and Fake Media", "Reposts and Clip Farms", "Filler Form
   assert.ok(slopPreferencesSource.includes(label), `slop category is missing: ${label}`);
 }
 assert.ok(popupJs.includes("watchIntentComplete: true") && popupJs.includes("slopPreferences"), "the YouTube MVP must default to filtering immediately while preserving selected categories");
+assert.ok(popupJs.includes('type: "orislop.ensureFilterDefaults"'), "the popup must finish the one-time all-filter migration before it renders preferences");
+assert.ok(background.includes("FILTER_DEFAULTS_VERSION_KEY") && background.includes("ensureInitialFilterDefaults"), "older saved subsets must migrate to all filters once");
+assert.ok(background.includes("OrislopSlopPreferences.defaultIds"), "the migration must use the canonical complete filter list");
 assert.ok(popupJs.includes("syncGroupToggles") && popupJs.includes("savePreferenceSelection"), "human-readable groups must preserve the underlying granular preference ids");
 assert.ok(!popupJs.includes("FILTER_BOT_PRESETS"), "the old filter bot must not add configuration clutter");
 assert.ok(contentSource.includes("slopPreferences: settingsCache.slopPreferences"), "content scoring must send feed choices across the background boundary");
@@ -1387,7 +1417,7 @@ assert.ok(releaseInfo.requiredQaFixes.some((item) => item.includes("legacy Tempo
 assert.ok(releaseInfo.requiredQaFixes.some((item) => item.includes("lightweight frame detector")));
 assert.ok(releaseInfo.requiredQaFixes.some((item) => item.includes("forces every eligible video through Heavy")));
 assert.ok(releaseInfo.requiredQaFixes.some((item) => item.includes("first-run Heavy autotuning")));
-assert.ok(releaseInfo.requiredQaFixes.some((item) => item.includes("canonical 11-category slop taxonomy")));
+assert.ok(releaseInfo.requiredQaFixes.some((item) => item.includes("canonical 12-category slop taxonomy")));
 assert.ok(releaseInfo.requiredQaFixes.some((item) => item.includes("source-backed fact checking")));
 assert.ok(releaseInfo.requiredQaFixes.some((item) => item.includes("two independent trusted source")));
 
@@ -1408,6 +1438,52 @@ function createClassifierRuntime(slopSource, modelSource, source) {
   vm.runInContext(modelSource, context, { filename: "aiClassifierModel.generated.js" });
   vm.runInContext(source, context, { filename: "classifier.js" });
   return context.OrislopClassifier;
+}
+
+function createSlopPreferenceRuntime(source) {
+  const context = vm.createContext({ console });
+  context.globalThis = context;
+  vm.runInContext(source, context, { filename: "slopPreferences.js" });
+  return context.OrislopSlopPreferences;
+}
+
+async function createFilterDefaultsMigrationRuntime(source, defaultIds) {
+  const closureEnd = source.lastIndexOf("})();");
+  assert.notEqual(closureEnd, -1, "filter-default migration test hook requires the production IIFE");
+  const instrumented = `${source.slice(0, closureEnd)}globalThis.__ensureOrislopFilterDefaults = ensureInitialFilterDefaults;\n${source.slice(closureEnd)}`;
+  const storage = {
+    "orislop.extension.settings": { enabled: false, hideSkipped: true, slopPreferences: ["compilations"] }
+  };
+  const context = vm.createContext({
+    URL,
+    AbortController,
+    console,
+    setTimeout,
+    clearTimeout,
+    importScripts() {},
+    OrislopSlopPreferences: { defaultIds },
+    chrome: {
+      runtime: {
+        onInstalled: { addListener() {} },
+        onMessage: { addListener() {} }
+      },
+      storage: {
+        onChanged: { addListener() {} },
+        local: {
+          async get(keys) {
+            const requested = Array.isArray(keys) ? keys : [keys];
+            return Object.fromEntries(requested.filter((key) => key in storage).map((key) => [key, storage[key]]));
+          },
+          async set(values) { Object.assign(storage, values); }
+        }
+      },
+      action: null
+    }
+  });
+  context.globalThis = context;
+  vm.runInContext(instrumented, context, { filename: "background.js" });
+  await context.__ensureOrislopFilterDefaults();
+  return { storage, ensure: context.__ensureOrislopFilterDefaults };
 }
 
 function createCoreRuntime(source) {
